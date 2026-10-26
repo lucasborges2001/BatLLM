@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
+EXCLUDED_MARKDOWN_DIRS = frozenset({
+    ".git", ".venv_BatLLM", ".venv", "venv", "env", "site-packages",
+    "__pycache__", ".pytest_cache", ".tox", ".nox", "node_modules",
+    "build", "dist",
+})
 STATUS_TIMESTAMP = re.compile(r"^Last updated: \d{4}-\d{2}-\d{2} \d{2}:\d{2}$")
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 HTML_REFERENCE = re.compile(r"(?:href|src)=\"([^\"]+)\"")
@@ -78,11 +84,14 @@ def local_target(source: Path, raw_target: str) -> Path | None:
 def markdown_files() -> list[Path]:
     """Return maintained Markdown files, excluding generated API documentation."""
     files: list[Path] = []
-    for path in ROOT.rglob("*.md"):
-        relative = path.relative_to(ROOT)
-        if relative.parts[:2] == ("docs", "code"):
-            continue
-        files.append(path)
+    for directory, children, names in os.walk(ROOT, followlinks=False):
+        parent = Path(directory)
+        children[:] = [
+            name for name in children
+            if name not in EXCLUDED_MARKDOWN_DIRS
+            and not (parent == ROOT / "docs" and name == "code")
+        ]
+        files.extend(parent / name for name in names if name.endswith(".md"))
     return sorted(files)
 
 
