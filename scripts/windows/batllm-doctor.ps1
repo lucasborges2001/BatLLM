@@ -3,8 +3,9 @@
 .SYNOPSIS
     Read-only Windows environment checks for BatLLM.
 .DESCRIPTION
-    Never installs dependencies, contacts Ollama, starts services, or writes reports.
-    This initial version intentionally does not validate gameplay or test execution.
+    Never installs dependencies, starts services, or writes reports.
+    Gameplay performs read-only GET requests against the local Ollama API.
+    Neither target launches the game or executes product tests.
 .EXAMPLE
     .\scripts\windows\batllm-doctor.ps1 -Target NonLive
 .EXAMPLE
@@ -14,9 +15,15 @@
 param(
     [ValidateSet('NonLive', 'Gameplay')]
     [string]$Target = 'NonLive',
-    [string]$RepoRoot = (Join-Path $PSScriptRoot '..\..'),
+    [string]$RepoRoot = '',
+    [ValidateScript({ $_ -eq '' -or $_ -match '^[A-Za-z0-9][A-Za-z0-9._:/-]*$' })]
+    [string]$Model = '',
     [switch]$Json
 )
+
+if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -58,6 +65,17 @@ function Invoke-ReadOnlyCommand {
     }
     catch {
         return [pscustomobject]@{ code = 1; output = $_.Exception.Message }
+    }
+}
+
+function Get-LocalOllamaApi {
+    param([ValidateSet('version', 'tags')][string]$Endpoint)
+    # Fixed loopback endpoint: read-only requests only, never a download or action.
+    try {
+        return Invoke-RestMethod -Method Get -Uri ('http://127.0.0.1:11434/api/' + $Endpoint) -TimeoutSec 2 -ErrorAction Stop
+    }
+    catch {
+        return $null
     }
 }
 
@@ -271,6 +289,58 @@ else {
     Add-Check 'ollama_cli' 'WARN' 'Ollama executable was not detected; optional for non-live checks.'
 }
 
+# No local API contact is made for NonLive. The local GET probes do not
+# install software, start a service, download models, or write configuration.
+$gameplayState = $null
+$serviceVersion = ''
+if ($Target -eq 'Gameplay') {
+    $versionInfo = Get-LocalOllamaApi 'version'
+    if ($null -eq $versionInfo -or
+        $null -eq $versionInfo.PSObject.Properties['version'] -or
+        [string]::IsNullOrWhiteSpace([string]$versionInfo.version)) {
+        Add-Check 'ollama_service' 'FAIL' 'No valid version response from Ollama at 127.0.0.1:11434.' 'If installed, check that Ollama is running and its local API is reachable.'
+        Add-Check 'ollama_model' 'NOT_CHECKED' 'Cannot inspect models without a reachable Ollama API.'
+        if ($null -eq $ollamaFound) { $gameplayState = 'NOT_DETECTED' }
+        else { $gameplayState = 'NOT_RUNNING' }
+    }
+    else {
+        $serviceVersion = [string]$versionInfo.version
+        Add-Check 'ollama_service' 'PASS' ('Local Ollama API version ' + $serviceVersion)
+        $tags = Get-LocalOllamaApi 'tags'
+        if ($null -eq $tags -or $null -eq $tags.PSObject.Properties['models'] -or $null -eq $tags.models) {
+            Add-Check 'ollama_model' 'FAIL' 'Ollama model inventory is unavailable or invalid.' 'Check /api/tags and the local Ollama service.'
+            $gameplayState = 'MODEL_INVENTORY_UNAVAILABLE'
+        }
+        else {
+            $names = @($tags.models | ForEach-Object { if ($null -ne $_ -and $null -ne $_.PSObject.Properties['name']) { [string]$_.name } })
+            if ($names.Count -eq 0) {
+                Add-Check 'ollama_model' 'FAIL' 'No local Ollama models were returned.' 'Download a model separately, after explicit approval.'
+                $gameplayState = 'NO_MODEL'
+            }
+            elseif ([string]::IsNullOrWhiteSpace($Model)) {
+                Add-Check 'ollama_model' 'WARN' 'Local models exist, but no target model was specified.' 'Provide -Model with an installed model name.'
+                $gameplayState = 'MODEL_NOT_SELECTED'
+            }
+            else {
+                $acceptableNames = @($Model)
+                if ($Model -notmatch ':') { $acceptableNames += ($Model + ':latest') }
+                if (@($names | Where-Object { $acceptableNames -ccontains $_ }).Count -eq 0) {
+                    Add-Check 'ollama_model' 'FAIL' ('Requested model ' + $Model + ' was not found locally.') 'Choose an installed model or authorise a separate download.'
+                    $gameplayState = 'NO_MODEL'
+                }
+                else {
+                    Add-Check 'ollama_model' 'PASS' ('Requested model ' + $Model + ' was found locally.')
+                    $gameplayState = 'READY'
+                }
+            }
+        }
+        if ($null -eq $ollamaFound) {
+            # A responsive API without a CLI cannot be classified as NOT_INSTALLED.
+            $gameplayState = 'CLI_NOT_DETECTED'
+        }
+    }
+}
+
 $batllmHomeValue = [Environment]::GetEnvironmentVariable('BATLLM_HOME', 'Process')
 if ([string]::IsNullOrWhiteSpace($batllmHomeValue)) {
     Add-Check 'batllm_home' 'WARN' 'BATLLM_HOME is not set; launching from source can write into the checkout.' 'Set BATLLM_HOME outside the repository before launching.'
@@ -298,6 +368,16 @@ else {
     }
 }
 
+if ($Target -eq 'Gameplay' -and $gameplayState -eq 'READY') {
+    foreach ($required in @('repository', 'virtualenv', 'python', 'dependencies', 'batllm_home')) {
+        $matches = @($checks | Where-Object { $_.name -eq $required })
+        if ($matches.Count -ne 1 -or $matches[0].status -ne 'PASS') {
+            $gameplayState = 'ENVIRONMENT_INCOMPLETE'
+            break
+        }
+    }
+}
+
 $results = $checks.ToArray()
 $report = [ordered]@{
     schema_version = 1
@@ -315,11 +395,20 @@ $report = [ordered]@{
     }
 }
 
+if ($Target -eq 'Gameplay') {
+    $report['gameplay'] = [ordered]@{
+        state = $gameplayState
+        requested_model = $Model
+        detected_api_version = $serviceVersion
+    }
+}
+
 if ($Json) {
     $report | ConvertTo-Json -Depth 7
 }
 else {
     Write-Output ('BatLLM Windows Doctor | target=' + $Target + ' | read-only')
+    if ($Target -eq 'Gameplay') { Write-Output ('Gameplay state: ' + $gameplayState) }
     foreach ($check in $results) {
         Write-Output ('[{0}] {1}: {2}' -f $check.status, $check.name, $check.detail)
         if ($check.next_action) {

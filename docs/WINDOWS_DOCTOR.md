@@ -1,70 +1,85 @@
-# Windows Doctor (read-only, initial version)
+# Windows Doctor (read-only diagnostics)
 
-This developer tool checks whether a Windows source checkout appears ready for
-non-live validation or model-backed gameplay. It deliberately does **not**
-install packages or Ollama, start or stop services, contact the Ollama API,
-launch BatLLM, run product tests, or create report files.
+Windows Doctor checks whether a source checkout meets the prerequisites for
+non-live validation or model-backed Gameplay. It never installs dependencies,
+starts or stops Ollama, downloads models, launches BatLLM, or writes a report.
 
-Run from the repository root in Windows PowerShell 5.1 or PowerShell 7:
+`NonLive` does **not** contact Ollama. `Gameplay` performs only local HTTP
+**GET** requests to `http://127.0.0.1:11434/api/version` and `/api/tags`
+with short timeouts. These are diagnostic requests, not gameplay or model calls.
+
+## Commands
+
+Run in Windows PowerShell 5.1 or PowerShell 7, from the repository root:
 
 ```powershell
 .\scripts\windows\batllm-doctor.ps1 -Target NonLive
 .\scripts\windows\batllm-doctor.ps1 -Target Gameplay
-.\scripts\windows\batllm-doctor.ps1 -Target NonLive -Json
+.\scripts\windows\batllm-doctor.ps1 -Target Gameplay -Model smollm2 -Json
+
+# Existing CMD launcher: it does not select a model.
+.\scripts\windows\batllm.cmd doctor Gameplay
 ```
 
-The `-RepoRoot` option can target another checkout; the default is the checkout
-containing the script. JSON output goes to standard output and has schema
-version `1`. A JSON report includes the checkout path and commit SHA, so review
-it before sharing. There is no implicit file output.
+`-Model` selects a **target to inspect**, not a change to the installed models
+or active application configuration. Without `-Model`, the tool can report
+installed models but cannot claim that a model has been selected. The script
+accepts `-RepoRoot` for another checkout; by default it uses its own checkout.
 
-Checks include: Windows and PowerShell versions, Git root/branch/SHA and working
-tree, a project virtual environment, supported Python, direct requirements
-(including declared version constraints), the Ollama executable in common
-Windows locations, and the effective `BATLLM_HOME` environment variable.
+JSON output is schema `1` with existing check objects and summary fields. For
+Gameplay, it adds `gameplay.state`, `gameplay.requested_model` and
+`gameplay.detected_api_version`. No file is written. The report contains a
+repository path and commit SHA: review it before sharing.
 
-## Meaning of results
+## Results and limits
 
-- `PASS`: the specific static check met its documented expectation.
-- `WARN`: an optional dependency is unavailable or a configuration risk exists.
-- `FAIL`: a prerequisite is missing, incompatible, or otherwise invalid.
-- `NOT_CHECKED`: prerequisites for that diagnostic were unavailable.
+Existing check statuses retain their meaning:
 
-A `PASS` for dependencies does not prove that transitive dependencies import
-correctly or that the application works. Detecting the Ollama executable does
-not prove that the service is running or that a model is available. The initial
-tool does not inspect the service or saved sessions.
+- `PASS`: that particular check succeeded.
+- `WARN`: optional prerequisite or configuration risk.
+- `FAIL`: prerequisite not met or a required check failed.
+- `NOT_CHECKED`: verification was not possible or applicable.
 
-`NonLive` does not require Ollama; `Gameplay` treats a missing Ollama executable
-as a failure. Both modes remain read-only. The tool reports findings rather
-than repairing them. The first version always finishes normally when it can
-print a report; inspect the reported statuses instead of relying on its
-process exit code as a readiness signal.
+Gameplay states are:
 
-## Safety and validation
+| State | Meaning |
+| --- | --- |
+| `NOT_DETECTED` | Neither a CLI in the checked locations nor a valid local API response was found; this is **not proof** that Ollama is absent everywhere. |
+| `NOT_RUNNING` | An Ollama CLI was found, but no valid local API version response was obtained; the service may be stopped or unreachable. |
+| `CLI_NOT_DETECTED` | The API answered, but no CLI was found in the checked locations. Do not classify this as not installed. |
+| `MODEL_INVENTORY_UNAVAILABLE` | API version responded, but `/api/tags` did not provide a valid model list. |
+| `NO_MODEL` | The list is empty or the explicitly requested model is absent. |
+| `MODEL_NOT_SELECTED` | The API listed models but no `-Model` target was supplied. |
+| `ENVIRONMENT_INCOMPLETE` | The CLI, API and requested model were found, but repository, Python, dependencies or `BATLLM_HOME` prerequisites failed. |
+| `READY` | Static checks, local API and the requested model met the inspected prerequisites. **A real game has not been tested.** |
 
-`BATLLM_HOME` should be set outside the checkout before launching the game,
-because a source checkout without it can write to tracked configuration.
-The Doctor itself does not set this variable.
+An untagged target such as `smollm2` matches an exact local name or
+`smollm2:latest`, not arbitrary other tags. A tagged name requires an exact
+match. An API responding on loopback is not evidence that all model requests
+or graphical application features work.
 
-Run the dependency-free PowerShell smoke test:
+The process continues to return exit code 0 after producing a valid diagnostic
+report, even if checks are `FAIL`. This preserves version 1 behaviour: callers
+must inspect the JSON state and individual check results, not treat exit 0
+as Gameplay readiness.
+
+`BATLLM_HOME` should be set to a directory outside the checkout before
+launching a game, because running from source without it can write to tracked
+configuration. Doctor does not set or create that directory.
+
+## Tests
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\tests\test-batllm-doctor.ps1
-```
-
-Then inspect the Git worktree and run the maintained documentation validator:
-
-```powershell
-git status --short --branch
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\tests\test-batllm-doctor-gameplay.ps1
 .\.venv_BatLLM\Scripts\python.exe tools\check_docs.py
+git diff --check
+git status --short --branch
 ```
 
-The smoke test exercises the report format, valid and missing repository
-handling, and absence of directory creation for a missing checkout. It is not
-a replacement for product tests. Test the command on Windows before claiming
-Windows compatibility; remote inspection or syntax review is insufficient.
-
-Future work may add explicit service/model checks and a separate, opt-in setup
-command. Do not extend the Doctor with implicit downloads, service mutations,
-or installers.
+The new Gameplay test shadows the local API client and prevents real HTTP
+requests. It simulates missing CLI, an unreachable service, empty or broken
+model inventories, selected and missing models, and a responsive API with no
+CLI. Neither test runs a game or starts Ollama. Real local Gameplay readiness
+remains a separate manual observation, and `run_tests.py core` and `non-live`
+remain separate product suites.
