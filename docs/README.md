@@ -24,6 +24,7 @@ This directory contains the maintained documentation for BatLLM. Each page has o
 ## Contributor documentation
 
 - [Contributing](CONTRIBUTING.md): development setup, architecture, configuration, tests, CI, packaging, release work, and troubleshooting.
+- [Windows Doctor](WINDOWS_DOCTOR.md): read-only Windows source-environment diagnostic and smoke tests.
 - [Installation channels and mutable state](STATE_AND_INSTALLATION.md): where configuration and sessions are written in source, packaged, Homebrew, and test environments.
 - [Maintainer audit checklist](MAINTAINER_AUDIT_CHECKLIST.md): compact pre-release and high-risk-change checks.
 - [Homebrew packaging](../packaging/homebrew/README.md): formula generation, local tap validation, and publication.
