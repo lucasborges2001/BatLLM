@@ -27,7 +27,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows\batllm
 .\scripts\windows\batllm-apply.ps1 -Mode Gameplay `
     -InstallOllama -StartOllama -PullModel -Model smollm2 -Launch
 
-# Actually perform that full setup after reviewing the plan.
+# Execute only after separate authorisation; each external action asks for YES.
 .\scripts\windows\batllm-apply.ps1 -Mode Gameplay -Apply `
     -InstallOllama -StartOllama -PullModel -Model smollm2 -Launch
 ```
@@ -45,6 +45,32 @@ missing. `-StartOllama` permits starting a local service if stopped.
 `-PullModel` permits downloading the named model if missing. `-Launch`
 launches `run_batllm.py` only when all checks pass. No download, install,
 service start, or launch occurs without its explicit option and `-Apply`.
+
+### External-action confirmations
+
+With `-Apply`, installing Ollama, starting its service and downloading a model
+require **separate interactive confirmations** at the moment each action is
+needed, in addition to `-InstallOllama`, `-StartOllama` or `-PullModel`.
+Apply prints the impact of each action and requires the exact answer `YES`.
+Any other answer, or an unavailable interactive console, blocks that action.
+WinGet agreements may also require separate acceptance; Apply no longer
+passes flags that silently accept package or source agreements.
+
+Confirmations are only requested for operations that are actually needed:
+Apply reuses a detected Ollama CLI, a responsive service and an installed
+requested model. The command `-Model smollm2:360m` can select a smaller model
+for initial tests; it is **not** equivalent to the default `smollm2` (1.7B).
+Review the official model catalogue and available resources before downloading.
+
+A cancelled action does not reverse any earlier operations: `-Apply` may already
+have prepared the Python virtual environment and run package checks. If one
+external action succeeded before a later action was declined, the earlier
+action remains in effect. Apply never stops a service it started or removes a
+model; the caller must review partial effects manually.
+
+Doctor receives the requested `-Model` and must return Gameplay state `READY`
+before Apply reports readiness. This remains a prerequisite check, **not**
+proof that a real game has run or a session has been saved.
 
 `-RunCoreTests` is optional because the tracked baseline may fail its
 configuration-default assertion; report the exact failure rather than
@@ -78,6 +104,8 @@ winget install can also have its own approval prompts.
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
   .\scripts\windows\tests\test-batllm-apply.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
+  .\scripts\windows\tests\test-batllm-apply-confirmations.ps1
 .\scripts\windows\batllm-doctor.ps1 -Target NonLive
 .\scripts\windows\batllm-apply.ps1 -Mode NonLive
 .\.venv_BatLLM\Scripts\python.exe tools\check_docs.py
@@ -85,10 +113,12 @@ git diff --check
 git status --short --branch
 ```
 
-The Apply smoke test checks *planning only* and verifies that it does not
+The Apply plan smoke test checks *planning only* and verifies that it does not
 change Git contents. Installation, service-start, downloads, and GUI launch
 must be validated manually in an intentionally disposable or suitable
-Windows environment. Do not claim those flows passed based on a plan test.
+Windows environment. The confirmation unit tests mock `Read-Host` and
+check guard placement; they do not execute `winget`, Ollama or the GUI.
+Do not claim live flows passed based on these tests.
 
 Apply is deliberately conservative: it does not edit Git-tracked files,
 change user/system environment variables persistently, uninstall tools, or

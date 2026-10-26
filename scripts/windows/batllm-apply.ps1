@@ -38,6 +38,26 @@ function Assert-Success {
     }
 }
 
+# Deliberately interactive and fail-closed. -Apply plus an action switch alone
+# must not silently authorise installers, background services or model downloads.
+function Confirm-ExternalChange {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('InstallOllama', 'StartOllama', 'PullModel')][string]$Action,
+        [string]$Impact
+    )
+    Write-Output ('IMPACT: ' + $Impact)
+    try {
+        $answer = Read-Host ('Type YES to confirm ' + $Action + ' (anything else cancels)')
+    }
+    catch {
+        throw ('BLOCKED: ' + $Action + ' requires an interactive confirmation; no such action was started.')
+    }
+    if ($answer -cne 'YES') {
+        throw ('CANCELLED: ' + $Action + ' was not confirmed; no such action was started.')
+    }
+}
+
 function Get-Check {
     param($Report, [string]$Name)
     $matching = @($Report.checks | Where-Object { $_.name -eq $Name })
@@ -46,8 +66,10 @@ function Get-Check {
 }
 
 function Invoke-DoctorReport {
-    param([string]$Target)
-    $raw = & $doctor -Target $Target -RepoRoot $repo -Json
+    param([string]$Target, [string]$SelectedModel = '')
+    $doctorArgs = @('-Target', $Target, '-RepoRoot', $repo, '-Json')
+    if ($Target -eq 'Gameplay') { $doctorArgs += @('-Model', $SelectedModel) }
+    $raw = & $doctor @doctorArgs
     if ($LASTEXITCODE -ne 0) { throw 'Doctor execution failed.' }
     return (($raw | Out-String) | ConvertFrom-Json)
 }
@@ -136,6 +158,7 @@ if (-not $Apply) {
         if ($InstallOllama) { Write-Output '   - If missing: install Ollama using exact winget ID Ollama.Ollama.' }
         if ($StartOllama) { Write-Output '   - If stopped: start local Ollama, never stop it automatically.' }
         if ($PullModel) { Write-Output ('   - If missing: download model ' + $Model + ' (disk/network impact).') }
+        if ($InstallOllama -or $StartOllama -or $PullModel) { Write-Output '   - Each external action requires a separate, interactive typed YES confirmation.' }
         Write-Output '5. Create isolated config.yaml only if absent; never overwrite it.'
         if ($Launch) { Write-Output '6. Launch BatLLM in the current terminal.' }
     }
@@ -200,8 +223,9 @@ if ($null -eq $ollama -and $InstallOllama) {
     if (-not (Get-Command winget -CommandType Application -ErrorAction SilentlyContinue)) {
         throw 'winget is unavailable. Use the official Ollama Windows installer manually and retry.'
     }
+    Confirm-ExternalChange -Action 'InstallOllama' -Impact 'Install Ollama.Ollama from winget. This downloads and executes an installer and changes Windows application state. WinGet may request separate agreements.'
     Write-Output 'INSTALL: Ollama using winget (external application, opt-in).'
-    & winget install --id Ollama.Ollama --exact --source winget --accept-package-agreements --accept-source-agreements
+    & winget install --id Ollama.Ollama --exact --source winget
     Assert-Success 'Install Ollama'
     $ollama = Get-OllamaExecutable
 }
@@ -211,6 +235,7 @@ if ($null -eq $ollama) {
 
 $version = Get-OllamaApi '/api/version'
 if ($null -eq $version -and $StartOllama) {
+    Confirm-ExternalChange -Action 'StartOllama' -Impact 'Start the Ollama service on this computer. It will remain running when Apply exits and may affect other local clients.'
     Write-Output 'START: Ollama (will remain running after Apply exits).'
     Start-Process -FilePath $ollama -ArgumentList 'serve' -WindowStyle Hidden | Out-Null
     for ($try = 0; $try -lt 30; $try++) {
@@ -229,9 +254,11 @@ if ($null -eq $tags -or $null -eq $tags.models) {
     throw 'Ollama model list could not be read.'
 }
 $installedNames = @($tags.models | ForEach-Object { [string]$_.name })
-$acceptableModelNames = @($Model, ($Model + ':latest'))
+$acceptableModelNames = @($Model)
+if ($Model -notmatch ':') { $acceptableModelNames += ($Model + ':latest') }
 $hasModel = @($installedNames | Where-Object { $acceptableModelNames -contains $_ }).Count -gt 0
 if (-not $hasModel -and $PullModel) {
+    Confirm-ExternalChange -Action 'PullModel' -Impact ('Download Ollama model ' + $Model + '. This uses network traffic and local disk storage; exact transfer size is not checked by Apply.')
     Write-Output ('DOWNLOAD: Ollama model ' + $Model + ' (may use significant disk space).')
     & $ollama pull $Model
     Assert-Success 'Pull Ollama model'
@@ -256,10 +283,13 @@ else {
     Write-Output 'KEEP: existing isolated config matches the selected model.'
 }
 
-$gameReport = Invoke-DoctorReport 'Gameplay'
+$gameReport = Invoke-DoctorReport 'Gameplay' $Model
 foreach ($key in @('ollama_cli', 'batllm_home')) {
     $check = Get-Check $gameReport $key
     if ($check.status -ne 'PASS') { throw ('Gameplay Doctor prerequisite failed: ' + $key) }
+}
+if ($null -eq $gameReport.gameplay -or $gameReport.gameplay.state -ne 'READY') {
+    throw ('Gameplay Doctor is not READY for model ' + $Model + ': ' + $gameReport.gameplay.state)
 }
 Write-Output ('READY: Gameplay prerequisites and installed model ' + $Model)
 Write-Output ('BATLLM_HOME (this process): ' + $env:BATLLM_HOME)
