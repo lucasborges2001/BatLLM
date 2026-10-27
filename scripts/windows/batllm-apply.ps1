@@ -67,10 +67,23 @@ function Get-Check {
 
 function Invoke-DoctorReport {
     param([string]$Target, [string]$SelectedModel = '')
-    $doctorArgs = @('-Target', $Target, '-RepoRoot', $repo, '-Json')
-    if ($Target -eq 'Gameplay') { $doctorArgs += @('-Model', $SelectedModel) }
+
+    $doctorArgs = @{
+        Target   = $Target
+        RepoRoot = $repo
+        Json     = $true
+    }
+
+    if ($Target -eq 'Gameplay') {
+        $doctorArgs['Model'] = $SelectedModel
+    }
+
     $raw = & $doctor @doctorArgs
-    if ($LASTEXITCODE -ne 0) { throw 'Doctor execution failed.' }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Doctor execution failed.'
+    }
+
     return (($raw | Out-String) | ConvertFrom-Json)
 }
 
