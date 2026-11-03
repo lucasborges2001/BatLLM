@@ -1,6 +1,6 @@
 # BatLLM status
 
-Last updated: 2026-10-21 01:57
+Last updated: 2026-11-02 17:54
 
 ## Summary
 
@@ -59,6 +59,12 @@ The project is in a stable `0.x` hardening phase rather than a feature-complete 
 - The implementation-owned research artefact, schema, corpus, results, and claim ledger remain in this repository.
 - The editable manuscript is maintained separately in `krahd/academic-writing`.
 
+### Workshop experiment tooling
+
+- `scripts/research/ollama_memory_poc.py` provides a repeatable API-level experiment comparing a second Ollama request with and without prior messages.
+- It is separate from Windows Doctor and from BatLLM's `OllamaConnector`/`modelito` product path.
+- It records request messages, responses, timing, and available Ollama token/runtime metrics; it does not change application configuration or saved sessions.
+
 ## Supported environment
 
 | Area | Current support |
@@ -81,7 +87,7 @@ source .venv_BatLLM/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-On Windows PowerShell, activate with `.\.venv_BatLLM\Scripts\Activate.ps1`.
+On Windows PowerShell, activate with `.\\.venv_BatLLM\\Scripts\\Activate.ps1`.
 
 ### Launch
 
@@ -96,6 +102,12 @@ python run_game_analyzer.py
 python run_tests.py core
 python run_tests.py non-live
 python tools/check_docs.py
+```
+
+Workshop POC unit tests (no live Ollama calls):
+
+```bash
+python -m unittest discover -s scripts/research -p "test_*.py" -v
 ```
 
 `python run_tests.py full` additionally starts and stops the configured real Ollama service. Run it only with explicit maintainer intent.
@@ -146,6 +158,8 @@ See `docs/STATE_AND_INSTALLATION.md` for the maintained reference.
 - `src/game/`: game, history, replay, session, and research logic.
 - `src/view/`: Kivy screens and layouts.
 - `src/llm/service.py`: Ollama/modelito lifecycle facade.
+- `scripts/research/ollama_memory_poc.py`: workshop API-level context experiment.
+- `docs/OLLAMA_MEMORY_POC.md`: experiment design, interpretation, and run instructions.
 - `research/urucon2026/`: reproducibility artefact.
 - `.github/workflows/`: CI, dependency, packaging, research, and release workflows.
 
@@ -165,6 +179,8 @@ See `docs/STATE_AND_INSTALLATION.md` for the maintained reference.
 Historical detail belongs in `docs/CHANGELOG.md`, pull requests, and the research audit files rather than in this status page.
 
 ## Validation state
+
+The workshop Ollama context POC has one exploratory paired observation from 2026-11-02. The identifier was absent from the second request without history and present in the second request with history; the latter response did not obey the exact-output instruction. Repeated controlled trials with the maintained script have not yet been run. This API-level observation does not validate BatLLM's `OllamaConnector` integration.
 
 Model selection: both Ollama configuration test modules pass locally
 (`44 passed`), covering CLI rows, canonical saved names and warm-up requests,
@@ -207,6 +223,7 @@ Documentation audit validation on PR #47:
 - The graphical application supports saved-session v2 only; legacy exports are intentionally unsupported.
 - Doxygen output under `docs/code/` is large and noisy and should be regenerated only intentionally.
 - Some Kivy-bound coordination remains in `GameBoard`; further separation is desirable before networked play.
+- The workshop context POC uses direct Ollama API calls; application-level history behaviour through `OllamaConnector` remains a separate validation task.
 
 ## Pending work
 
@@ -227,4 +244,4 @@ Documentation audit validation on PR #47:
 - Preserve replay determinism and schema versioning through the 2.0 architecture change.
 - Treat shared prompt or game repositories as later work requiring authentication, moderation, provenance, and versioning.
 
-Last updated: 2026-10-21 01:57
+Last updated: 2026-11-02 17:54

@@ -39,7 +39,8 @@ This directory contains the maintained documentation for BatLLM. Each page has o
 
 ## Research documentation
 
-The implementation and reproducibility material for the URUCON 2026 work is under [research/urucon2026](../research/urucon2026/README.md). The editable manuscript is intentionally maintained in the separate `academic-writing` repository; this repository contains the software and research artefact only.
+- The implementation and reproducibility material for the URUCON 2026 work is under [research/urucon2026](../research/urucon2026/README.md). The editable manuscript is intentionally maintained in the separate `academic-writing` repository; this repository contains the software and research artefact only.
+- [Ollama memory/context POC](OLLAMA_MEMORY_POC.md): a separate workshop experiment about forwarding prior messages to the Ollama API. It is not part of Windows Doctor or the BatLLM application connector.
 
 ## Current support summary
 
