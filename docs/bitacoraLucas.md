@@ -100,3 +100,55 @@ Workshop record: time reported, verified work, results, and next actions. Hours 
 **Time accounting:** **approximately 15 hours reported through 26 October** (11 h for 18–24 October and approximately 4 h on 26 October). Work performed on 27 October is recorded **without a reported hour total**. No estimated hours were added.
 
 **Repository status at this close:** fork branch `docs/bitacora-batllm-2026`, published HEAD `5699993d8ba1a326d3bcdbd5833f2d5bf59d0862`. This work-log update is supplied separately; **it has not been committed or pushed**.
+
+---
+
+## Mon 2 November 2026 — Ollama context-memory investigation and publication
+
+**Scope:** Reconcile the saved-session/Game Analyzer evidence, complete the first controlled Ollama context-forwarding investigation, add repeatable research tooling, validate it on Windows, and publish the implementation to the fork.
+
+**Saved session and Game Analyzer follow-up**
+
+- Located the previously saved session `session-2026-10-27-18-10-18.json` in the isolated BatLLM workshop state directory. Its reported size was **9,502 bytes**.
+- Ran `run_game_analyzer.py` against that session. The shared screenshot showed **Game 1 / Round 1**, the starts of Turns 1 and 2, both bot prompts, visible state values and the timeline.
+- This confirms that the saved v2 session could be loaded and displayed by the Analyzer. A complete replay and a clean **State Diff** result were **not** verified; those remain open checks. This later evidence supersedes the 27 October snapshot above that said no saved JSON or Analyzer run had been confirmed at that time.
+
+**Ollama context-memory experiment**
+
+- Designed and ran a direct Ollama API experiment with `smollm2:360m`, Python **3.12.6**, Python Ollama client **0.6.3**, Ollama **0.40.13**, temperature **0**, and seed **42**.
+- Compared two second-request conditions:
+  - **Without history:** the second request contained only the second user question.
+  - **With history:** the second request contained the first user message, the assistant response, and the second user question.
+- The repeatable script ran **3 paired trials / 12 model requests**. Each condition used an independent random identifier; execution order alternated between trials.
+- Results: **0/3** identifiers found without history; **3/3** found with history; **3/3** paired comparisons supported the hypothesis; **0** request/condition errors.
+- Exact-output compliance was **0/3** in the with-history condition. The model returned the correct identifier with additional text (`Recibido ...`) rather than only the identifier. In the without-history condition it echoed the question without recovering the identifier. Recall and instruction-format compliance are therefore reported separately.
+- Conclusion: `SUPPORTED_ALL_VALID_PAIRS` for this model and configuration. This is evidence that the client must include prior messages to provide conversational context to these independent API calls. It is **not** evidence of persistent model memory and does **not** yet validate BatLLM's `OllamaConnector` / `modelito` integration. The three-trial result is specific to this model, prompt and configuration; it is not a universal claim about all models.
+
+**Windows environment and validation**
+
+- Repository baseline before implementation: branch `docs/bitacora-batllm-2026`, HEAD `f3a65a4e12c289aab046c403a5b4e23c0b3d9239`, clean worktree.
+- Used the existing Python 3.12.6 virtual environment and installed `ollama==0.6.3`; `modelito==1.4.5` was present but was not upgraded or used for this API-level POC.
+- Windows Doctor initially could not be invoked under `RemoteSigned` because the script was not signed. Used `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force` for that PowerShell process only; no persistent execution-policy change was made.
+- Set `BATLLM_HOME` for the current PowerShell session to `%APPDATA%\BatLLM\Workshop`, outside the checkout. Doctor then reported **Gameplay `READY`**, with **10 PASS, 1 worktree WARN, 0 FAIL**. The worktree warning reflected the expected pending implementation changes at that point.
+- Python compilation: **PASS**. Research unit tests: **5/5 PASS**. `tools/check_docs.py`: **PASS**. `git diff --check`: **PASS**.
+- The POC report was inspected per trial. The second request contained exactly one `user` message in the without-history condition and `user, assistant, user` in the with-history condition, matching the experimental design.
+
+**Implementation and publication**
+
+- Added `scripts/research/ollama_memory_poc.py` and `scripts/research/test_ollama_memory_poc.py`.
+- Added `docs/OLLAMA_MEMORY_POC.md`; updated `docs/README.md` and `STATUS.md`.
+- Kept the experiment separate from Windows Doctor: Doctor remains a read-only preflight and does not run model inference.
+- Committed as **`8181ea2edb569b5d5d7c619124a938b3f1bac8fc`** — `feat(research): add Ollama memory context POC`.
+- Successfully pushed to `origin/docs/bitacora-batllm-2026`. The local commit SHA and `git ls-remote` branch SHA matched. The reported worktree was clean after publication. No upstream push, pull request or merge was performed.
+
+**Limitations and next actions**
+
+1. Inspect `src/game/ollama_connector.py` and its tests to establish how BatLLM constructs and forwards conversation history in the real application path. Design a focused integration test that verifies the actual message arrays for the relevant context modes and checks that history does not leak between games.
+2. Complete the saved-session Analyzer review: inspect **State Diff** and verify the full replay for `session-2026-10-27-18-10-18.json`.
+3. Keep response-format compliance as a separate model-behaviour observation; do not conflate it with identifier recall.
+4. Continue with the next workshop investigation only after the `OllamaConnector` path has been inspected and its evidence recorded.
+
+**Time accounting:** **3 h reported for 2 November**, within the work window **17:00–21:15**. The window spans 4 h 15 min; the recorded work duration is the 3 h explicitly reported, not the full elapsed window. Cumulative quantified time is now **approximately 18 h** (approximately 15 h through 26 October plus 3 h on 2 November). Work performed on 27 October remains unquantified and is excluded from that total.
+
+**Repository status at this close:** fork branch `docs/bitacora-batllm-2026`, published HEAD `8181ea2edb569b5d5d7c619124a938b3f1bac8fc`; worktree reported clean. This work-log update is prepared separately and has **not** been committed or pushed.
+
