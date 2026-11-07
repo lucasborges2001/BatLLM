@@ -18,7 +18,7 @@ For normal play you also need:
 - at least one model installed in Ollama; and
 - enough memory for the model you choose.
 
-BatLLM can open the official Ollama installer and can manage the configured local service from **Settings → Ollama Config**.
+BatLLM can open the official Ollama download page and can manage the configured local service from **Settings → Ollama Config**.
 
 > [!CAUTION]
 > The Ollama controls affect the real local installation. Starting or stopping the service, downloading a model, deleting a model, or changing the selected model can affect other Ollama-based tools on the same machine.
@@ -135,7 +135,7 @@ The settings screen controls:
 - automatic Ollama startup; and
 - automatic Ollama shutdown.
 
-Use **Set Temporarily** to apply values for the current execution without saving them as defaults. Use **Set as Defaults** to write them to the active configuration file.
+Use **Set Temporarily** to apply values for the current execution without saving them as defaults. These execution overrides are excluded from later model and timeout preference saves. Use **Set as Defaults** to write them to the active configuration file.
 
 `Esc` behaves like **Cancel** and returns to the home screen.
 
@@ -167,15 +167,17 @@ The analyzer can:
 - reconstruct the board from the saved rules and ordered plays;
 - show prompts, raw responses, parsed commands, state changes, model metadata, and replay warnings.
 
+**Refresh** updates Recent Sessions and the current file-list directory. It keeps an existing selection and refreshes its preview; a deleted selection is cleared. Long previews and recent-file summaries can be scrolled.
+
 The user-facing analyzer supports the current BatLLM session schema v2. Older top-level list exports are rejected rather than replayed approximately.
 
 ## Saving sessions
 
-**Save Session** writes an analyzer-compatible JSON file to the configured saved-session folder.
+**Save Session** writes an analyzer-compatible JSON file to the configured saved-session folder in the user data directory. See [state locations and legacy-session copying](STATE_AND_INSTALLATION.md).
 
 Only completed turns are exported. An active turn or a cancelled zero-play turn is omitted so that unfinished state does not invalidate an otherwise useful session.
 
-Saved rounds include a frozen gameplay-settings snapshot. Saved sessions also include model/runtime metadata. The analyzer therefore uses the rules recorded with the session rather than the current settings file.
+Saved rounds include a frozen gameplay-settings snapshot. Saved sessions also include a configuration metadata snapshot; saving does not query the live server. The analyzer therefore uses the rules recorded with the session rather than the current settings file.
 
 Configuration and save locations depend on how BatLLM was launched. See [Installation channels and mutable state](STATE_AND_INSTALLATION.md).
 
@@ -184,7 +186,7 @@ Configuration and save locations depend on how BatLLM was launched. See [Install
 The Ollama screen provides:
 
 - installation or reinstallation launch;
-- service start and stop controls;
+- service start and stop controls (only a server started by BatLLM can be stopped);
 - current service status;
 - an output log;
 - startup warm-up timeout controls;
@@ -193,7 +195,7 @@ The Ollama screen provides:
 
 ### Local models
 
-A local model is already installed in Ollama.
+A local model is already installed in Ollama. **Use Selected** saves the model choice only after readiness succeeds.
 
 1. Open **Local Models**.
 2. Choose a model.
@@ -201,17 +203,21 @@ A local model is already installed in Ollama.
 
 BatLLM saves the model name, attempts to warm it for gameplay, and records it as the last successfully served model when warm-up succeeds.
 
+The status report treats an omitted model tag as `latest`; distinct explicit tags remain separate.
+
 The local-model timeout controls can save or remove a per-model request-timeout override.
 
 **Delete Selected** removes the model from the real local Ollama installation after confirmation.
 
+Remote catalogue discovery lists Ollama model families and marks installed models. If discovery fails, use **Enter model name** in Ollama Config, enter a name from https://ollama.com/library, then press **Download Selected** and confirm. The standalone configuration editor also accepts an explicit model name before its confirmed **Pull** action. Starting Ollama never downloads a model; a missing configured model produces a recovery message. Selecting a model does not automatically unload other models used by local clients.
+
 ### Remote models
 
-A remote model is only a catalogue entry until it has been downloaded.
+A model name identifies a downloadable model, whether or not automatic catalogue discovery is available.
 
-1. Open **Remote Models**.
-2. Choose a model name.
-3. Press **Download Selected**.
+1. Press **Enter model name** in the Remote Models section.
+2. Enter a name from https://ollama.com/library.
+3. Press **Download Selected** and confirm.
 
 After a successful download, the model appears in the local model list and can be selected for play.
 

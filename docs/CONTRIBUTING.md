@@ -22,13 +22,15 @@ For larger features or architecture changes, open an issue before implementation
 ### Python
 
 BatLLM supports Python `3.10`, `3.11`, and `3.12`. Python `3.12` is recommended.
+Install it before creating the environment; an unversioned `python3` or `py`
+may select a newer, unsupported interpreter.
 
 macOS and Linux:
 
 ```bash
 git clone https://github.com/krahd/BatLLM.git
 cd BatLLM
-python3 -m venv .venv_BatLLM
+python3.12 -m venv .venv_BatLLM
 source .venv_BatLLM/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
@@ -39,7 +41,7 @@ Windows PowerShell:
 ```powershell
 git clone https://github.com/krahd/BatLLM.git
 cd BatLLM
-py -m venv .venv_BatLLM
+py -3.12 -m venv .venv_BatLLM
 .\.venv_BatLLM\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
@@ -71,6 +73,61 @@ Most tests do not require Ollama. Live gameplay and the explicitly live test mod
 
 BatLLM uses `modelito` for gameplay requests and model-management helpers. The repository-supported version is pinned in `requirements.txt`; contributors should install the complete requirements file rather than installing individual packages manually.
 
+## Workshop forks
+
+The coordinator forks canonical `krahd/BatLLM` into the workshop organisation.
+Students then fork that workshop repository into their own accounts. Use the
+reviewed canonical `main` as the starting point; old audit or stabilisation
+branches are not alternative workshop baselines.
+
+| Checkout | `origin` | `upstream` | Pull request destination |
+| --- | --- | --- | --- |
+| Coordinator | workshop organisation's BatLLM fork | `https://github.com/krahd/BatLLM.git` | canonical repository for selected upstream contributions |
+| Student | student's BatLLM fork | workshop organisation's BatLLM fork | workshop repository |
+
+Clone the appropriate fork URL, then follow the Python 3.12 setup above. Add the
+corresponding `upstream` URL with `git remote add upstream URL`, replacing `URL`
+with the repository URL from the table. Check `git remote -v` and the target
+repository shown on GitHub before opening a pull request. Use one task branch
+per issue, with ordinary pull requests into the workshop's `main`.
+
+Enable GitHub Actions on the workshop fork and protect its `main` with the
+available test checks. Keep upstream publishing credentials out of forks; the
+Homebrew publishing job runs only in `krahd/BatLLM`.
+
+The normal BatLLM setup installs the published `modelito==1.4.8`. A Modelito fork
+is needed only for library changes. To test such changes, install the local
+Modelito checkout into the active BatLLM environment with
+`python -m pip install -e ../modelito`, then rerun BatLLM's non-live suite. Record
+both repositories' commit IDs in the pull request. Restore the published
+dependency with `python -m pip install --force-reinstall modelito==1.4.8` before
+checking the standard workshop baseline again.
+
+Before the first session, run:
+
+```bash
+python run_tests.py non-live
+python tools/check_docs.py
+python -m pip check
+```
+
+For desktop play, install Ollama and download the agreed small model beforehand
+(the shipped default is `smollm2`; `ollama pull smollm2` downloads it). Select that
+installed model in **Settings → Ollama Config**. Expand the game window if
+headings or footer controls overlap at 800×600. The in-app download total-timeout
+defect remains open; pre-downloading avoids that path during class.
+
+An exercise without Ollama or a graphical display is also available:
+
+```bash
+python run_batllm_research.py --provider scripted --output saved_sessions/workshop-v3.json
+python run_batllm_verify.py saved_sessions/workshop-v3.json
+```
+
+This creates a scripted v3 trace for the CLI verifier. It does not run an LLM and
+does not create a v2 desktop Game Analyzer save. Keep a short issue/PR record of
+the problem, change, validation and remaining uncertainty for each task.
+
 ## Repository structure
 
 | Path | Purpose |
@@ -89,7 +146,8 @@ BatLLM uses `modelito` for gameplay requests and model-management helpers. The r
 | `src/game/session_schema.py` | user-facing saved-session v2 validation |
 | `src/game/session_v3.py` | research trace-v3 structures |
 | `src/analyzer_model.py` | analyser navigation and replay model |
-| `src/llm/service.py` | BatLLM-specific Ollama/modelito lifecycle facade |
+| `src/llm/service.py` | BatLLM configuration, endpoint-specific management and owned-service lifecycle |
+| `src/llm/chat.py` | shared strict gameplay/research inference transport |
 | `src/configs/` | shipped defaults, alternate profiles, and config loader |
 | `src/util/paths.py` | repository, asset, user-state, and saved-session path resolution |
 | `src/tests/` | automated tests and smoke helpers |
@@ -122,18 +180,18 @@ flowchart LR
 1. `HomeScreen` collects one prompt per player.
 2. `GameBoard` starts the round when both prompts are ready.
 3. `OllamaConnector` builds the model messages and maintains independent or shared histories.
-4. `modelito` sends the request to Ollama.
+4. The shared `src/llm/chat.py` adapter uses strict Modelito 1.4.8 requests with native options, structured roles, `stream: false`, and an explicit transport timeout.
 5. `replay_engine.parse_model_response()` converts the returned text into BatLLM's bounded command grammar.
 6. The live bot executes the command.
 7. `HistoryManager` records prompts, responses, commands, states, and outcomes.
 
-Each new game receives a fresh connector history. This prevents late responses from a retired game contaminating the next game's model context.
+Cancelled rounds restore their initial conversation snapshot; each new game receives a fresh connector history. This prevents late responses from a retired game contaminating the next game's model context.
 
 ### Saved sessions and analysis
 
 The graphical application exports session schema v2. Each saved round includes a frozen gameplay-settings snapshot; the top-level envelope also records model/runtime metadata. Only completed turns are exported.
 
-The Game Analyzer validates the saved file, replays the ordered commands using the frozen rules, and reports state differences rather than silently approximating incompatible data. Legacy top-level list exports are intentionally rejected.
+The Game Analyzer validates the saved file, replays the ordered commands using the frozen rules, and reports state differences, response–command disagreement, and continuity breaks between turns. Legacy top-level list exports are intentionally rejected.
 
 ### Research runtime
 
@@ -145,13 +203,9 @@ The editable paper is not stored in this repository.
 
 The shipped defaults are in `src/configs/config.yaml`. `src/configs/app_config.py` overlays hard-coded fallback values, the shipped YAML, and an optional user YAML.
 
-The active location depends on how BatLLM is launched:
+Configuration saves use `$BATLLM_HOME/config.yaml` when set, otherwise the platform user directory on every installation channel. Shipped defaults are never a save destination. Existing user overlays take precedence; customised legacy checkout defaults are retained on the next save. Preserve them before upgrading the checkout.
 
-- **Source checkout without `BATLLM_HOME`:** configuration changes write to `src/configs/config.yaml`; relative saved-session folders resolve inside the repository.
-- **`BATLLM_HOME` set:** mutable configuration writes to `$BATLLM_HOME/config.yaml`; relative saved-session folders resolve below `$BATLLM_HOME`.
-- **Homebrew:** the generated wrappers set `BATLLM_HOME` to `~/Library/Application Support/BatLLM` unless the user overrides it.
-- **Release bundles:** the launchers currently run from the extracted bundle and do not set `BATLLM_HOME`; state therefore remains relative to that extracted directory unless the user sets the variable.
-- **Tests:** `src/tests/conftest.py` sets an isolated temporary `BATLLM_HOME` before application configuration is imported.
+Relative saved-session paths use the same user directory as preferences, with non-destructive copying of legacy checkout JSON files when no `BATLLM_HOME` is set. Tests set an isolated temporary `BATLLM_HOME` before application configuration is imported.
 
 See [STATE_AND_INSTALLATION.md](STATE_AND_INSTALLATION.md) for the compact reference.
 
@@ -218,7 +272,9 @@ export KIVY_NO_CONSOLELOG=1
 export PYTHONPATH=src
 ```
 
-Tests already set an isolated `BATLLM_HOME`; do not point tests at user state.
+Tests already set an isolated `BATLLM_HOME` and remove inherited proxy settings
+for their test-owned HTTP endpoints; do not point tests at user state. These
+test fixtures do not change the application's proxy configuration.
 
 ### Lint and compilation
 
@@ -249,6 +305,8 @@ doxygen docs/code/dox_config.properties
 Review generated changes carefully; `docs/code/` is large and noisy.
 
 ### Packaging checks
+
+Bundle installers check the default interpreter, then supported versioned interpreters, before creating the environment. If Python 3.10–3.12 is unavailable they stop before installation. The installer smoke check also validates the created environment against the launchers' Python compatibility check.
 
 Release bundles and formula rendering:
 
@@ -373,3 +431,9 @@ Remote catalogue retrieval requires network access. Local gameplay does not requ
 ### Generated API documentation is stale
 
 Run Doxygen only when the source-level API docs should change, then inspect the generated diff before committing.
+
+Service start, inspection and shutdown resolve only BatLLM preferences. Shutdown requires a matching ownership receipt (endpoint, PID and creation time); independently started services are left running. Session saving performs no live metadata query. Platform bundles contain runtime files and launchers; full documentation and research material remain in the source archives.
+
+The standalone editor (`python -m configs.configurator` with `PYTHONPATH=src`) shares the strict chat transport and explicit-endpoint service facade. Its destructive actions and downloads require confirmation; console cancellation retires the request/output rather than stopping Ollama. Remote catalogue discovery reports its unsupported status, with explicit model-name entry as the download path. Service startup never pulls missing models. Model selection commits only the latest request on the Kivy thread and never automatically unloads another model.
+
+V3 structural validation uses the committed JSON Schema before semantic verification. Platform bundles copy that canonical schema into runtime assets. Imported v2 rules use `GameplaySettingsSnapshot.from_snapshot()` for strict validation; `from_mapping()` retains application-default construction. Research packages include the runtime source/resource closure and are tested by generating and verifying a trace after isolated extraction.

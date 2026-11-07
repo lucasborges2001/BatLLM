@@ -26,6 +26,10 @@ This directory contains the maintained documentation for BatLLM. Each page has o
 - [Contributing](CONTRIBUTING.md): development setup, architecture, configuration, tests, CI, packaging, release work, and troubleshooting.
 - [Windows Doctor](WINDOWS_DOCTOR.md): read-only Windows source-environment diagnostic and smoke tests.
 - [Installation channels and mutable state](STATE_AND_INSTALLATION.md): where configuration and sessions are written in source, packaged, Homebrew, and test environments.
+- [Merged-main audit — 30 October 2026](MAIN_AUDIT_2026_10_30.md): Modelito 1.4.8 integration, full/live tests, native gameplay and replay, installation findings and targeted repairs.
+- [Post-merge adversarial audit](ADVERSARIAL_AUDIT_2026_10_26.md): remaining findings against merged main, with isolated reproductions and an upstream Modelito handoff.
+- [Adversarial audit verification](ADVERSARIAL_AUDIT_2026_10_25.md): confirmed findings, repairs, upstream handoff and validation limits.
+- [Native gameplay/save/analyser rehearsal](NATIVE_REHEARSAL_2026_10_27.md): real-model macOS source acceptance, saved-file replay verification, usability repairs and remaining release gates.
 - [Maintainer audit checklist](MAINTAINER_AUDIT_CHECKLIST.md): compact pre-release and high-risk-change checks.
 - [Homebrew packaging](../packaging/homebrew/README.md): formula generation, local tap validation, and publication.
 

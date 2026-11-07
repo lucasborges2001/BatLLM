@@ -142,6 +142,28 @@ class GameplaySettingsSnapshot:
         return cls.from_mapping(values)
 
     @classmethod
+    def from_snapshot(cls, values: Mapping[str, Any]) -> "GameplaySettingsSnapshot":
+        """Validate imported frozen rules without coercion or invented defaults."""
+        if not isinstance(values, Mapping):
+            raise ValueError("Gameplay snapshot must be a mapping")
+        integer_fields = {"bullet_damage", "initial_health", "turns_per_round", "total_rounds"}
+        for key in GAMEPLAY_SNAPSHOT_KEYS:
+            if key not in values:
+                raise ValueError(f"Gameplay snapshot is missing {key}")
+            value = values[key]
+            if key == "shield_initial_state":
+                valid = type(value) is bool
+            elif key in integer_fields:
+                valid = type(value) is int
+            else:
+                valid = type(value) in (int, float)
+            if not valid:
+                raise ValueError(f"Gameplay snapshot {key} has an invalid type")
+        if values["turns_per_round"] < 1 or values["total_rounds"] < 1:
+            raise ValueError("Round and turn counts must be positive")
+        return cls.from_mapping(values)
+
+    @classmethod
     def from_mapping(cls, values: Mapping[str, Any] | None) -> "GameplaySettingsSnapshot":
         values = values or {}
         snapshot = cls(
@@ -656,10 +678,13 @@ def replay_turn(
     """Replay one turn from ordered plays."""
     current = normalize_state_map(pre_state)
     play_results: list[PlayResolution] = []
+    grounding_details: list[str] = []
     for play in plays or []:
         bot_id = _to_int(play.get("bot_id"), 0)
         llm_response = str(play.get("llm_response", "") or "")
         cmd_text = str(play.get("cmd", "") or "")
+        if parse_model_response(llm_response).normalized_cmd != cmd_text:
+            grounding_details.append(f"Bot {bot_id} response-command disagreement")
         resolution = apply_play(
             current,
             bot_id=bot_id,
@@ -671,6 +696,8 @@ def replay_turn(
         play_results.append(resolution)
 
     matches, mismatch_details = compare_state_maps(current, saved_post_state)
+    mismatch_details.extend(grounding_details)
+    matches = matches and not grounding_details
     return TurnReplay(
         initial_state=normalize_state_map(pre_state),
         play_results=play_results,

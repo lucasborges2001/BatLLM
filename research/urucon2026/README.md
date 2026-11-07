@@ -45,7 +45,7 @@ A live local-model trace can be created through Modelito and Ollama:
 python run_batllm_research.py --provider ollama --model smollm2 --output /tmp/live-session.json
 ```
 
-The live adapter is provided as an integration path; the reference evaluation uses scripted responses to isolate trace and transition semantics from network and model variability.
+The live adapter shares BatLLM’s strict Modelito 1.4.6 transport, including explicit request deadlines and native options. Wire-level mock tests establish the application transport contract; historical traces are not retroactively authenticated by this repair. The live adapter is provided as an integration path; the reference evaluation uses scripted responses to isolate trace and transition semantics from network and model variability.
 
 ## Evaluation
 
@@ -89,3 +89,7 @@ The canonical manuscript reports the committed reference results explicitly. If 
 SHA-256 values are unkeyed consistency commitments, not signatures. They do not authenticate an author, prevent comprehensive trace replacement, or conceal low-entropy content from dictionary guessing. External chain of custody requires an independent signature, trusted timestamp, or transparency-log anchor.
 
 The `full`, `redacted`, and `hashed` profiles govern prompt, system-instruction, response, and request-message text. They do not imply that all metadata or game state is private. Reduced retention preserves operative replay but cannot independently verify the response-to-command mapping.
+
+## Using the extracted package
+
+The generated research ZIP contains the complete runtime `src` tree, resources, canonical schema, dependencies list and `VERSION`. After extraction, install `requirements.txt` in a supported Python environment, then run the scripted generation and verification commands above from the extracted directory. The maintained regression suite executes both entry points with the original checkout excluded from the import path. Native desktop and real-model acceptance remain separate from this scripted-package check.

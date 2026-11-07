@@ -4,7 +4,71 @@
 
 ## Unreleased
 
+### Workshop fork preparation — 6 November 2026
+
+- made source setup select Python 3.12 explicitly on Unix and Windows;
+- documented the organisation → student fork workflow, pinned Modelito baseline,
+  contributor checks and scripted trace exercise;
+- isolated non-live HTTP tests from inherited proxy settings;
+- fixed research and verifier CLI options being intercepted by Kivy in a clean
+  shell, and tested both launchers outside CI's Kivy environment;
+- restricted Homebrew publishing to the canonical repository; and
+- excluded local poster-capture state from newly built research packages, with a
+  regression check. The last two fixes carry forward focused changes from draft
+  PR #64 without its repository-wide cleanup or historical status snapshot.
+
+### Targeted installer and analyser repairs — 30 October 2026
+
+- made bundle installers select a supported interpreter before creating an environment, and made installer smoke validation check the resulting interpreter;
+- removed overlapping inherited file-list layouts so analyser row clicks update the selected file and preview; and
+- verified actual macOS bundle installation, both launchers and native row selection. Only findings A1 and A2 are repaired; A3 and A4 remain open. See [repair verification](MAIN_AUDIT_2026_10_30.md#targeted-repair-verification--30-october-2026).
+
+### Modelito 1.4.8 integration and main audit — 30 October 2026
+
+- merged the published Modelito 1.4.8 consumer migration, restoring remote model-family discovery while preserving explicit endpoints, no-download startup and owned-service shutdown;
+- verified merged main with all five hosted workflows, the full 310-test suite, real-model native gameplay/save/replay, research experiments and install-level Homebrew checks; and
+- recorded four open findings in [the main audit](MAIN_AUDIT_2026_10_30.md): unsupported interpreter selection in bundle installers, unresponsive analyser file-row selection, small-window gameplay clipping and a download deadline overrun. These are findings, not repairs or release sign-off.
+
+### Native audit repairs — 27 October 2026
+
+- confirmed and repaired the three native-rehearsal findings: preview overflow, stale file-list refresh and false stopped status for an untagged model alias;
+- contained long-filename overflow in the Recent Sessions footer found during native resize checks;
+- added directory-refresh/selection and model-alias regressions, with native layout checks at three sizes; and
+- preserved gameplay, prompting, inference, v2/v3 formats, defaults and version while retaining the unsigned release gates in [the audit follow-up](NATIVE_REHEARSAL_2026_10_27.md#verification-and-repair--27-october-2026).
+
+### Native source rehearsal — 27 October 2026
+
+- completed two native macOS games with real Ollama responses, session saving, in-app and standalone analysis, malformed-output handling and save-on-exit;
+- independently replayed all 24 saved positions without a mismatch and ran all 293 automated tests with live smoke enabled; and
+- recorded three open usability findings, selected evidence and unrun release gates in [the native rehearsal audit](NATIVE_REHEARSAL_2026_10_27.md).
+
+### Post-merge audit repair — 26 October 2026
+
+- routed the standalone editor through strict, deadline-aware inference and explicit-endpoint service operations; confirmed deletion, unload and download actions; made console cancellation local to its request/output;
+- guarded every scheduled turn against game/round changes and rejected stale model-selection completions without unloading other clients’ models;
+- separated temporary settings from persisted preferences and resolved context modes before constructing model input;
+- aligned v3 structural checks with the committed JSON Schema, added strict imported-v2 rule validation and included the schema in runtime bundles;
+- included the runtime import/resource closure in research packages and added isolated extracted generation/verification tests;
+- removed implicit model pulls from daemon startup and added explicit model-name download recovery while automatic Modelito catalogue discovery remains unsupported; and
+- recorded per-finding repair disposition and validation in [the post-merge audit](ADVERSARIAL_AUDIT_2026_10_26.md).
+
+### Adversarial audit repair — 25 October 2026
+
+- upgraded runtime and Homebrew pins to Modelito 1.4.6 and shared strict, deadline-aware native inference between gameplay and research;
+- added wire-level payload, timeout, unavailable-server and malformed-response regressions; corrected streaming defaults in the CI mock;
+- removed independent Modelito configuration discovery from service operations and required endpoint/PID/birth-time ownership before shutdown;
+- restored conversation histories on round cancellation and added v2 action validation, grounding checks and turn-continuity warnings;
+- deferred model persistence until readiness succeeds, rejected non-finite timeout input and non-mapping YAML sections, escaped analyser content, and removed rendering mutations;
+- moved default saved sessions into the user data directory, copying legacy JSON files without overwriting originals or user files;
+- moved startup inspection off the UI thread, removed live metadata I/O from saving, bounded management subprocesses and opened the official download page instead of executing remote installer scripts;
+- separated platform runtime bundles from source/research archives and pinned all workflow actions to commits; and
+- recorded upstream Modelito lifecycle/deadline limitations and native validation gates in [the audit verification](ADVERSARIAL_AUDIT_2026_10_25.md).
+
 ### Reliability and session integrity
+
+- incorporated AlanJoskowicz’s PR #60 model-selection fix, preserving contributor commits;
+- restored the `smollm2` first-install default and separated saved configuration from versioned defaults across installation channels;
+- preserved existing overlays and legacy checkout preferences, guarded shipped defaults, used the atomic writer for last-served-model persistence, and moved the standalone editor to user preferences;
 
 - extracted canonical local model names from Ollama CLI rows before selection, saving, and warm-up, and avoided modelito's unparsed-row availability check;
 - preserved model-selection error messages for deferred UI alerts, preventing a secondary `NameError`;
@@ -23,6 +87,9 @@
 - moved editable manuscript ownership to `krahd/academic-writing` while retaining software evidence here.
 
 ### Dependencies and tooling
+
+- excluded virtual environments and generated files from documentation link scans, fixing Windows CI failures caused by third-party package documentation;
+- repaired the job-level CI interpreter expression to use the available matrix context so the Python/platform test matrix can start;
 
 - aligned the runtime on `modelito==1.4.5`, `ollama>=0.6.2`, `psutil==7.2.2`, `PyYAML==6.0.3`, and `requests>=2.34.2`;
 - restored the Python `3.10`–`3.12` multiplatform non-live CI matrix and maintained Pylint gate;

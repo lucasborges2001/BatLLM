@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+import pytest
+
 from configs.app_config import config
 from view.history_screen import HistoryScreen
 from view.ollama_config_screen import OllamaConfigScreen
@@ -155,7 +157,7 @@ def test_request_install_ollama_prompts_and_runs_install(monkeypatch) -> None:
     _run_sync(screen)
     _run_clock_now(monkeypatch)
     statuses = []
-    prompt = {"title": None, "message": None}
+    prompt = {"title": "", "message": ""}
     refreshed = {"status": False, "local": False}
     helper_calls = []
 
@@ -215,7 +217,7 @@ def test_request_reinstall_ollama_uses_reinstall_prompt(monkeypatch) -> None:
     screen = OllamaConfigScreen()
     _run_sync(screen)
     _run_clock_now(monkeypatch)
-    prompt = {"title": None, "message": None}
+    prompt = {"title": "", "message": ""}
     install_calls = []
 
     monkeypatch.setattr(
@@ -310,6 +312,32 @@ def test_refresh_status_reports_running_model(monkeypatch) -> None:
     assert "BatLLM model: mistral-small:latest (running)" in screen.status_details
 
 
+@pytest.mark.parametrize("configured,running,loaded", [
+    ("smollm2", ["smollm2:latest"], True),
+    ("smollm2:latest", ["smollm2"], True),
+    ("smollm2:1.7b", ["smollm2:1.7b"], True),
+    ("smollm2:1.7b", ["smollm2:latest"], False),
+    ("smollm2", ["smollm2:1.7b"], False),
+    ("smollm2:latest", ["smollm2:1.7b"], False),
+    ("team/smollm2", ["team/smollm2:latest"], True),
+    ("team/smollm2", ["other/smollm2:latest"], False),
+    ("localhost:5000/team/smollm2", ["localhost:5000/team/smollm2:latest"], True),
+    ("localhost:5000/team/smollm2:1.7b", ["localhost:5000/team/smollm2:latest"], False),
+    ("smollm2", [], False),
+])
+def test_status_model_aliases_preserve_explicit_tags(configured, running, loaded) -> None:
+    screen = OllamaConfigScreen()
+    snapshot = {"found": True, "running": True,
+                "configured_model": configured, "running_models": running}
+
+    report = screen._format_status_report(snapshot)
+
+    suffix = "(running)" if loaded else "(configured, not currently running)"
+    assert f"BatLLM model: {configured} {suffix}" in report
+    assert snapshot["configured_model"] == configured
+    assert snapshot["running_models"] == running
+
+
 def test_model_selection_uses_name_from_cli_row(monkeypatch) -> None:
     screen = OllamaConfigScreen()
     _run_sync(screen)
@@ -317,10 +345,9 @@ def test_model_selection_uses_name_from_cli_row(monkeypatch) -> None:
     model = "mistral-small3.2:24b-instruct-2506-q4_K_M"
     row = f"{model}    5a408ab55df5    15 GB    2 months ago"
     calls = []
-    monkeypatch.setattr("view.ollama_config_screen.modelito_ollama_service.list_local_models",
+    monkeypatch.setattr("view.ollama_config_screen.ollama_service.list_local_models",
                         lambda: ["  ", row, "llama3.2:latest", row])
-    monkeypatch.setattr("view.ollama_config_screen.modelito_ollama_service."
-                        "ensure_ollama_running_verbose", lambda **_kwargs: (True, "ready"))
+    monkeypatch.setattr("view.ollama_config_screen.ollama_service.server_is_up", lambda *_args: True)
     monkeypatch.setattr("view.ollama_config_screen.ollama_service.preload_model",
                         lambda _url, _port, name, **_kwargs: calls.append(name))
     monkeypatch.setattr(screen, "_get_running_model_names", lambda: [])
@@ -367,6 +394,7 @@ def test_model_selection_failure_shows_deferred_error(monkeypatch) -> None:
 
 
 def test_set_model_from_selection_persists(monkeypatch) -> None:
+    _run_clock_now(monkeypatch)
     screen = OllamaConfigScreen()
     saved = {"sets": [], "saved": False}
     _run_sync(screen)

@@ -341,12 +341,6 @@ class GameBoard(Widget):
         # Clear the canvas before drawing
         self.canvas.clear()
 
-        # Keep bots inside bounds
-        for bot in self.bots:
-            r = bot.diameter / 2
-            bot.x = min(max(bot.x, r), 1 - r)
-            bot.y = min(max(bot.y, r), 1 - r)
-
         with NormalizedCanvas(self):
             # Background
             c = 1.0
@@ -467,8 +461,10 @@ class GameBoard(Widget):
         self.shuffled_bots = random.sample(self.bots, len(self.bots))
 
         # Tell the history manager a new round is starting, then kick the first turn
+        self.ollama_connector.load_options()
+        self._round_history_snapshot = self.ollama_connector.snapshot_histories()
         self.history_manager.start_round(self)
-        Clock.schedule_once(self.play_turn)
+        self._schedule_turn()
         return True
 
     def _apply_round_settings_to_live_bots(
@@ -480,6 +476,9 @@ class GameBoard(Widget):
         """Freeze round-level gameplay settings onto the live bot widgets."""
         for bot in self.bots:
             bot.diameter = rules.bot_diameter
+            radius = rules.bot_diameter / 2
+            bot.x = min(max(bot.x, radius), 1 - radius)
+            bot.y = min(max(bot.y, radius), 1 - radius)
             bot.default_step = rules.bot_step_length
             bot.shield_range_deg = rules.shield_size
             if reset_for_new_game:
@@ -487,6 +486,18 @@ class GameBoard(Widget):
                 bot.shield = rules.shield_initial_state
 
 
+
+    def _schedule_turn(self):
+        """Retire queued work when its game, turn or active round changes."""
+        token = self.current_callback_token()
+        active_round = self.history_manager.current_round
+
+        def begin(dt):
+            if (active_round is not None and self.callback_token_is_current(token)
+                    and self.history_manager.current_round is active_round):
+                self.play_turn(dt)
+
+        Clock.schedule_once(begin)
 
     def play_turn(self, dt):
         """Executes one turn. Game logic advances frame-by-frame via Kivy's Clock. TODO: does it?"""
@@ -563,7 +574,7 @@ class GameBoard(Widget):
         if all(b.ready_for_next_turn for b in self.bots):
             self.current_turn += 1
             self.history_manager.end_turn(self)
-            Clock.schedule_once(self.play_turn)
+            self._schedule_turn()
             return
 
         self._submit_next_bot_for_turn()
@@ -748,6 +759,8 @@ class GameBoard(Widget):
     def cancel_current_round(self, bot: Bot, reason: str):
         """Cancel the active round, roll back state, and keep a cancelled-round history entry."""
         round_number = self.current_round
+        self._turn_generation += 1
+        self.ollama_connector.restore_histories(self._round_history_snapshot)
         self._restore_round_initial_state()
         rollback_state = self.history_manager._get_bots_state(self)
         self.history_manager.cancel_round(

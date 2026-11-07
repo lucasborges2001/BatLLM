@@ -53,9 +53,20 @@ def windows_wrapper_contents(version: str) -> dict[str, str]:
         "install-batllm.bat": (
             "@echo off\r\n"
             "setlocal\r\n"
-            "cd /d %~dp0\r\n"
-            "where py >nul 2>nul && (set PY_CMD=py) || (set PY_CMD=python)\r\n"
+            "cd /d \"%~dp0\"\r\n"
+            "for %%P in (\"py\" \"py -3.12\" \"py -3.11\" \"py -3.10\" \"python\") do (\r\n"
+            "  %%~P src\\util\\compat.py >nul 2>nul\r\n"
+            "  if not errorlevel 1 (\r\n"
+            "    set \"PY_CMD=%%~P\"\r\n"
+            "    goto python_found\r\n"
+            "  )\r\n"
+            ")\r\n"
+            "echo Install Python 3.10, 3.11, or 3.12, then run this installer again. 1>&2\r\n"
+            "exit /b 1\r\n"
+            ":python_found\r\n"
             "%PY_CMD% -m venv .venv_BatLLM\r\n"
+            "if errorlevel 1 exit /b 1\r\n"
+            ".\\.venv_BatLLM\\Scripts\\python src\\util\\compat.py\r\n"
             "if errorlevel 1 exit /b 1\r\n"
             ".\\.venv_BatLLM\\Scripts\\python -m pip install --upgrade pip\r\n"
             "if errorlevel 1 exit /b 1\r\n"
@@ -89,17 +100,33 @@ def windows_wrapper_contents(version: str) -> dict[str, str]:
     }
 
 
+def _posix_installer_contents() -> str:
+    return (
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "cd \"$(dirname \"$0\")\"\n"
+        "PYTHON=\n"
+        "for candidate in python3 python3.12 python3.11 python3.10 python; do\n"
+        "  if \"$candidate\" src/util/compat.py >/dev/null 2>&1; then\n"
+        "    PYTHON=\"$candidate\"\n"
+        "    break\n"
+        "  fi\n"
+        "done\n"
+        "if [[ -z \"$PYTHON\" ]]; then\n"
+        "  echo 'Install Python 3.10, 3.11, or 3.12, then run this installer again.' >&2\n"
+        "  exit 1\n"
+        "fi\n"
+        "\"$PYTHON\" -m venv .venv_BatLLM\n"
+        "./.venv_BatLLM/bin/python src/util/compat.py\n"
+        "./.venv_BatLLM/bin/python -m pip install --upgrade pip\n"
+        "./.venv_BatLLM/bin/python -m pip install -r requirements.txt\n"
+    )
+
+
 def macos_wrapper_contents(version: str) -> dict[str, str]:
     """Return the macOS-specific wrapper files."""
     return {
-        "install-batllm.command": (
-            "#!/usr/bin/env bash\n"
-            "set -euo pipefail\n"
-            "cd \"$(dirname \"$0\")\"\n"
-            "python3 -m venv .venv_BatLLM\n"
-            "./.venv_BatLLM/bin/python -m pip install --upgrade pip\n"
-            "./.venv_BatLLM/bin/python -m pip install -r requirements.txt\n"
-        ),
+        "install-batllm.command": _posix_installer_contents(),
         "run-batllm.command": (
             "#!/usr/bin/env bash\n"
             "set -euo pipefail\n"
@@ -129,14 +156,7 @@ def macos_wrapper_contents(version: str) -> dict[str, str]:
 def linux_wrapper_contents(version: str) -> dict[str, str]:
     """Return the Linux-specific wrapper files."""
     return {
-        "install-batllm.sh": (
-            "#!/usr/bin/env bash\n"
-            "set -euo pipefail\n"
-            "cd \"$(dirname \"$0\")\"\n"
-            "python3 -m venv .venv_BatLLM\n"
-            "./.venv_BatLLM/bin/python -m pip install --upgrade pip\n"
-            "./.venv_BatLLM/bin/python -m pip install -r requirements.txt\n"
-        ),
+        "install-batllm.sh": _posix_installer_contents(),
         "run-batllm.sh": (
             "#!/usr/bin/env bash\n"
             "set -euo pipefail\n"
@@ -179,9 +199,24 @@ def stage_release(base_name: str, extra_files: dict[str, str] | None = None) -> 
 
     for src in tracked_files():
         rel = src.relative_to(ROOT)
+        if extra_files is not None and not (
+            rel.parts[0] == "src" and (len(rel.parts) < 2 or rel.parts[1] != "tests")
+            or str(rel) in {"requirements.txt", "run_batllm.py", "run_game_analyzer.py",
+                            "VERSION", "CITATION.cff", "LICENSE", "README.md"}
+        ):
+            continue
         dest = stage_root / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
+
+    if extra_files is not None:
+        schema = stage_root / "src/assets/batllm-session-v3.schema.json"
+        schema.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "research/urucon2026/schema/batllm-session-v3.schema.json", schema)
+        write_text_file(stage_root / "README.md",
+                        "# BatLLM runtime bundle\n\nRun the included install script, then the run script.\n"
+                        "User guide: https://github.com/krahd/BatLLM/blob/main/docs/USER_GUIDE.md\n"
+                        "Full source and research material: https://github.com/krahd/BatLLM\n")
 
     for rel, contents in (extra_files or {}).items():
         write_text_file(stage_root / rel, contents)
@@ -233,6 +268,8 @@ def create_bundles(version: str) -> list[Path]:
     build_tar_gz(linux_stage, linux_tgz)
     outputs.append(linux_tgz)
 
+    for stage in (source_stage, windows_stage, macos_stage, linux_stage):
+        shutil.rmtree(stage.parent)
     return outputs
 
 

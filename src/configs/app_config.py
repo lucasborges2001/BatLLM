@@ -52,19 +52,20 @@ def _read_yaml(path: Path) -> dict:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
-    return data if isinstance(data, dict) else {}
+        data = yaml.safe_load(handle)
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Configuration must be a mapping: {path}")
+    return data
 
 
 def _merge_config(target: dict, overlay: dict) -> None:
     """Merge a sectioned config mapping into the target mapping."""
     for section, values in overlay.items():
-        if section not in target:
-            target[section] = {}
-        if isinstance(values, dict):
-            target[section].update(values)
-        else:
-            target[section] = values
+        if not isinstance(values, dict):
+            raise ValueError(f"Configuration section {section!r} must be a mapping")
+        target.setdefault(section, {}).update(values)
 
 
 def load_config_data(
@@ -100,6 +101,7 @@ class AppConfig:
         resolved_path = resolve_config_path(self._default_path) if path is None else path
         self._path = resolved_path
         self._config = load_config_data(resolved_path, shipped_path=self._default_path)
+        self._overrides = {}
 
 
 
@@ -110,6 +112,11 @@ class AppConfig:
 
         if path is None:
             path = self._path
+
+        if path.resolve() in {
+            self._default_path.resolve(), SHIPPED_CONFIG_PATH.resolve()
+        }:
+            raise ValueError("Cannot save preferences over shipped configuration defaults")
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -132,6 +139,8 @@ class AppConfig:
 
     def get(self, section, key):
         """Gets a configuration value from the specified section and key."""
+        if key in self._overrides.get(section, {}):
+            return self._overrides[section][key]
         return self._config.get(section, {}).get(
             key, DEFAULTS.get(section, {}).get(key)
         )
@@ -146,11 +155,18 @@ class AppConfig:
             self._config[section] = {}
 
         self._config[section][key] = value
+        self._overrides.get(section, {}).pop(key, None)
 
+
+    def set_temporary(self, section, key, value):
+        """Apply an execution override without changing saved preferences."""
+        self._overrides.setdefault(section, {})[key] = value
 
     def as_dict(self):
         """Returns the configuration as a dictionary."""
-        return self._config
+        effective = copy.deepcopy(self._config)
+        _merge_config(effective, self._overrides)
+        return effective
 
 
 # Singleton instance

@@ -16,6 +16,16 @@ from configs.app_config import config
 
 
 @pytest.fixture(autouse=True)
+def _isolate_test_proxies(monkeypatch) -> None:
+    """Keep test-owned HTTP endpoints independent of the host's proxy setup."""
+    for key in ("http_proxy", "https_proxy", "all_proxy", "no_proxy"):
+        monkeypatch.delenv(key, raising=False)
+        monkeypatch.delenv(key.upper(), raising=False)
+    # Modelito caches urllib's proxy configuration when first imported.
+    monkeypatch.setattr("modelito._http_deadline._PROXIES", {})
+
+
+@pytest.fixture(autouse=True)
 def _disable_kivy_window_requirement(monkeypatch) -> None:
     monkeypatch.setattr("kivy.base.EventLoop.ensure_window", lambda *args, **kwargs: None)
     monkeypatch.setattr("kivy.base.EventLoop.window", SimpleNamespace(dpi=96), raising=False)
@@ -37,7 +47,9 @@ def _disable_kivy_window_requirement(monkeypatch) -> None:
 @pytest.fixture(autouse=True)
 def _isolate_config_state(tmp_path) -> None:
     """Keep configuration writes inside the per-test temporary directory."""
-    original_config = deepcopy(config.as_dict())
+    original_config = deepcopy(config._config)
+    original_overrides = deepcopy(config._overrides)
+    config._overrides = {}
     original_path = getattr(config, "_path")
     setattr(config, "_path", tmp_path / "config.yaml")
 
@@ -45,3 +57,4 @@ def _isolate_config_state(tmp_path) -> None:
 
     setattr(config, "_config", deepcopy(original_config))
     setattr(config, "_path", original_path)
+    config._overrides = original_overrides
