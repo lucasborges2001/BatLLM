@@ -43,16 +43,17 @@ This directory contains the maintained documentation for BatLLM. Each page has o
 
 ## Research documentation
 
-- The implementation and reproducibility material for the URUCON 2026 work is under [research/urucon2026](../research/urucon2026/README.md). The editable manuscript is intentionally maintained in the separate `academic-writing` repository; this repository contains the software and research artefact only.
-- [Ollama memory/context POC](taller/lucas-borges/experimentos/ollama-memory-poc.md): a separate workshop experiment about forwarding prior messages to the Ollama API. It is not part of Windows Doctor or the BatLLM application connector.
+- The implementation and reproducibility material for the URUCON 2026 work is under [research/urucon2026](../research/urucon2026/README.md). The editable manuscript is intentionally maintained in the separate academic-writing repository; this repository contains the software and research artefact only.
+- [Lucas Borges — workshop log](taller/lucas-borges/bitacora.md): concise record of workshop work, evidence and pending checks.
+- [Ollama context experiment](taller/lucas-borges/experimentos/ollama-memory-poc.md): API-level context-forwarding experiment, separate from Windows Doctor and BatLLM application integration.
 
 ## Current support summary
 
-- Python `3.10`–`3.12`; Python `3.12` is recommended.
+- Python 3.10–3.12; Python 3.12 is recommended.
 - macOS, Linux, and Windows source and release-bundle workflows.
 - Apple Silicon macOS Homebrew formula.
-- Local Ollama model runtime through `modelito`.
+- Local Ollama model runtime through modelito.
 - Saved-session schema v2 for the user-facing Game Analyzer.
 - Schema v3 for the headless URUCON research runtime and verifier.
 
-The repository version is recorded in [`VERSION`](../VERSION). Current validation and unresolved manual checks are recorded once, in [STATUS.md](../STATUS.md), rather than repeated throughout the documentation.
+The repository version is recorded in [VERSION](../VERSION). Current validation and unresolved manual checks are recorded once, in [STATUS.md](../STATUS.md), rather than repeated throughout the documentation.
