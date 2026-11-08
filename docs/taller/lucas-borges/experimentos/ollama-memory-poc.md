@@ -1,60 +1,44 @@
-# Ollama memory/context proof of concept
+# Experimento de contexto de Ollama
 
-## Purpose
+## Objetivo
 
-This experiment isolates one question:
+Comprobar si el modelo recupera un identificador de un request anterior cuando el cliente vuelve a enviar el historial en el siguiente request.
 
-> Does the model recover information from a previous request only when the client sends the previous conversation messages again?
+## Alcance
 
-It is an **Ollama API-level context-forwarding experiment**. It does not test BatLLM's `OllamaConnector`, `modelito` integration, or the graphical application. Those require a separate product-integration experiment.
+Es una prueba directa de la API de Ollama. No valida la integración de BatLLM con **OllamaConnector**, modelito ni la interfaz gráfica.
 
-## Separation from Windows Doctor
+Windows Doctor sigue siendo un diagnóstico de solo lectura: puede comprobar la API y el modelo instalado, pero no ejecuta inferencias. Este experimento sí realiza inferencias y se ejecuta por separado.
 
-Windows Doctor remains a read-only environment diagnostic. It may check the local Ollama API and whether a requested model is installed, but it must not run inference.
+## Diseño
 
-Run the existing preflight:
+Cada prueba usa un identificador nuevo y compara dos condiciones:
 
-```powershell
-.\scripts\windows\batllm-doctor.ps1 -Target Gameplay -Model smollm2:360m -Json
-```
+- **Sin historial:** el segundo request contiene solo la segunda pregunta.
+- **Con historial:** el segundo request contiene el primer mensaje del usuario, la respuesta del asistente y la segunda pregunta.
 
-Inspect `gameplay.state` and the individual checks. `READY` means the inspected prerequisites were found; it does not mean the POC or a real game has been executed.
+Se mantienen el modelo y las opciones. El orden de las condiciones alterna entre pruebas para reducir el efecto del calentamiento del modelo. El script registra los mensajes exactos enviados a cada request.
 
-The POC is a separate, explicit model-inference operation.
+## Entorno y resultado
 
-## Experimental design
+- Modelo: **smollm2:360m**.
+- Python: **3.12.6**.
+- Ollama: **0.40.13**.
+- Cliente Python: **0.6.3**.
+- Temperatura: **0**. Seed: **42**.
+- Ejecución: **3 pares / 12 requests**.
 
-Each trial creates a fresh random identifier for each condition. The order alternates between trials to reduce the effect of model warm-up.
+| Resultado | Sin historial | Con historial |
+| --- | ---: | ---: |
+| Identificador recuperado | 0/3 | 3/3 |
 
-### Condition A — without history
+Los **3/3 pares** apoyaron la hipótesis y no hubo errores de ejecución. El formato exacto se cumplió en **0/3** respuestas con historial: el modelo devolvió el identificador acompañado de texto.
 
-1. Send a first user message containing the identifier.
-2. Send a second request containing **only** the second question.
-3. Check whether the identifier appears in the second response.
+**SUPPORTED_ALL_VALID_PAIRS** significa que todos los pares válidos de esta ejecución mostraron ese resultado. No es una afirmación universal sobre otros modelos o configuraciones.
 
-### Condition B — with history
+## Ejecución
 
-1. Send a first user message containing a different identifier.
-2. Capture the assistant response.
-3. Send a second request containing the first user message, the assistant response, and the second question.
-4. Check whether the identifier appears in the second response.
-
-The model, temperature, seed, and output-token limit remain constant. The variable is whether previous messages are included in the second request.
-
-The tool records the exact message arrays sent to each request. It does not assume that an Ollama server maintains a conversation between independent `/api/chat` calls.
-
-## Requirements
-
-- Python 3.10–3.12.
-- A reachable local Ollama service.
-- The selected model already installed.
-- The `ollama` Python client installed in the interpreter used to run the script.
-
-The script does not install packages, start or stop Ollama, download models, alter BatLLM configuration, or access saved game sessions.
-
-## Run
-
-From the repository root in Windows PowerShell:
+Desde la raíz del repositorio, en Windows PowerShell:
 
 ```powershell
 .\scripts\windows\batllm-doctor.ps1 -Target Gameplay -Model smollm2:360m -Json
@@ -64,7 +48,7 @@ From the repository root in Windows PowerShell:
     --trials 3
 ```
 
-To save the report outside the repository:
+Para guardar el informe fuera del repositorio:
 
 ```powershell
 .\.venv_BatLLM\Scripts\python.exe .\scripts\research\ollama_memory_poc.py `
@@ -73,48 +57,11 @@ To save the report outside the repository:
     --output "$env:TEMP\batllm-ollama-memory-poc.json"
 ```
 
-The output path is only written when `--output` is supplied. Existing files are not overwritten unless `--force` is explicitly supplied.
+El script no instala paquetes, inicia o detiene Ollama, descarga modelos, modifica la configuración de BatLLM ni accede a sesiones guardadas.
 
-Each trial makes four model requests: two for condition A and two for condition B. Three trials therefore make twelve requests. Reduce `--trials` for a shorter exploratory run.
+## Pruebas del script
 
-## Report interpretation
-
-The report records:
-
-- exact request messages and model responses;
-- model and Python client versions;
-- model options and trial order;
-- wall-clock latency for each request;
-- Ollama response metrics when provided (`load_duration`, prompt/evaluation token counts and durations);
-- whether the identifier appeared in the response; and
-- whether the response consisted of the identifier alone.
-
-The recall check and exact-format check are deliberately separate. A response such as `Recibido BATLLM-...` contains the identifier but does not satisfy an instruction to output only the identifier. A condition status of `PASS` means both requests completed; it does not mean the hypothesis passed. Read the separate `summary.conclusion` and per-condition analysis.
-
-`SUPPORTED_ALL_VALID_PAIRS` means every completed pair in that run showed no identifier in A and the identifier in B. It is evidence for this model/configuration and this experiment, not a universal statement about all models or persistent memory.
-
-## Initial exploratory observation — 2 November 2026
-
-One exploratory pair was executed before this repeatable script was prepared, using `smollm2:360m`, `ollama` Python client `0.6.3`, temperature `0`, and seed `42`.
-
-Identifier: `BATLLM-698183539130`.
-
-| Request | Observed response | Identifier present? | Time |
-| --- | --- | ---: | ---: |
-| A1 — first message | `Recibido BATLLM-698183539130.` | Yes | 8.308 s |
-| A2 — second request without history | The model echoed the question, without the identifier | No | 1.899 s |
-| B1 — first message | `Recibido BATLLM-698183539130.` | Yes | 1.024 s |
-| B2 — second request with history | `Recibido BATLLM-698183539130.` | Yes | 1.566 s |
-
-The observation is consistent with the hypothesis: the identifier was recovered when the previous messages were included and was not recovered when they were omitted.
-
-Neither second response complied with the requested exact output format. The B2 response contained the correct identifier but added text.
-
-This was one exploratory pair, not a repeated validation. The original run used the same identifier for both conditions and always ran A before B. The maintained script uses independent identifiers and alternates condition order.
-
-## Unit tests
-
-The unit tests use a fake client and do not contact Ollama:
+Las pruebas unitarias usan un cliente simulado y no llaman a Ollama. Resultado registrado: **5/5 PASS**.
 
 ```powershell
 .\.venv_BatLLM\Scripts\python.exe -m unittest discover `
@@ -123,8 +70,8 @@ The unit tests use a fake client and do not contact Ollama:
     -v
 ```
 
-## Limits and next experiment
+## Límites y siguiente paso
 
-This experiment demonstrates the effect of including messages in a request. It does not demonstrate that BatLLM's application connector constructs or retains the intended history.
+El resultado muestra el efecto de reenviar mensajes en requests independientes. No demuestra memoria persistente ni que BatLLM construya correctamente el historial en la aplicación.
 
-After repeated API-level trials, inspect and test `src/game/ollama_connector.py` separately. That product-integration test should capture the actual messages built by BatLLM for independent-context and shared-context modes, without conflating them with the API-level POC.
+El siguiente paso es inspeccionar **src/game/ollama_connector.py** y probar los mensajes reales enviados en los modos de contexto, incluyendo que el historial no se filtre entre partidas.
