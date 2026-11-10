@@ -309,11 +309,31 @@ if ($Target -eq 'Gameplay') {
 }
 
 $batllmHomeValue = [Environment]::GetEnvironmentVariable('BATLLM_HOME', 'Process')
+$batllmHomeSource = 'BATLLM_HOME'
 if ([string]::IsNullOrWhiteSpace($batllmHomeValue)) {
-    Add-Check 'batllm_home' 'WARN' 'BATLLM_HOME is not set; launching from source can write into the checkout.' 'Set BATLLM_HOME outside the repository before launching.'
+    # Match src/util/paths.py: Windows defaults to APPDATA\BatLLM and
+    # falls back to the user's AppData\Roaming directory.
+    $appData = [Environment]::GetEnvironmentVariable('APPDATA', 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($appData)) {
+        $batllmHomeValue = Join-Path $appData 'BatLLM'
+    }
+    else {
+        $userProfile = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+        if ([string]::IsNullOrWhiteSpace($userProfile)) {
+            $userProfile = [Environment]::GetEnvironmentVariable('USERPROFILE', 'Process')
+        }
+        if (-not [string]::IsNullOrWhiteSpace($userProfile)) {
+            $batllmHomeValue = Join-Path $userProfile 'AppData\Roaming\BatLLM'
+        }
+    }
+    $batllmHomeSource = 'Windows platform default'
+}
+
+if ([string]::IsNullOrWhiteSpace($batllmHomeValue)) {
+    Add-Check 'batllm_home' 'FAIL' 'Could not resolve the effective Windows BATLLM home directory.'
 }
 elseif (-not [IO.Path]::IsPathRooted($batllmHomeValue)) {
-    Add-Check 'batllm_home' 'FAIL' 'BATLLM_HOME must be an absolute path outside the checkout.'
+    Add-Check 'batllm_home' 'FAIL' 'The effective BATLLM home must be an absolute path outside the checkout.'
 }
 else {
     try {
@@ -324,14 +344,14 @@ else {
             $fullHome.StartsWith($fullRepo + '\', [StringComparison]::OrdinalIgnoreCase)
         )
         if ($inside) {
-            Add-Check 'batllm_home' 'WARN' 'BATLLM_HOME is inside the checkout.'
+            Add-Check 'batllm_home' 'WARN' ('Effective BATLLM home is inside the checkout: ' + $fullHome) 'Set BATLLM_HOME to an absolute directory outside the repository.'
         }
         else {
-            Add-Check 'batllm_home' 'PASS' ('BATLLM_HOME points outside the checkout: ' + $fullHome)
+            Add-Check 'batllm_home' 'PASS' ($batllmHomeSource + ' points outside the checkout: ' + $fullHome)
         }
     }
     catch {
-        Add-Check 'batllm_home' 'FAIL' 'BATLLM_HOME is not a valid absolute path.'
+        Add-Check 'batllm_home' 'FAIL' 'The effective BATLLM home is not a valid absolute path.'
     }
 }
 

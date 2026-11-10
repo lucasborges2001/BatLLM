@@ -64,6 +64,22 @@ $report = Invoke-Doctor $repo 'NonLive'
 Assert-True ($report.schema_version -eq 1) 'Report schema version is 1'
 Assert-True ($report.read_only -eq $true) 'Report declares read-only semantics'
 Assert-True ($report.target -eq 'NonLive') 'NonLive target selected'
+
+# BATLLM_HOME is optional: the application has a safe Windows platform default.
+$previousBatllmHome = [Environment]::GetEnvironmentVariable('BATLLM_HOME', 'Process')
+try {
+    [Environment]::SetEnvironmentVariable('BATLLM_HOME', $null, 'Process')
+    $defaultHomeReport = Invoke-Doctor $repo 'NonLive'
+    Assert-True ((Check-Status $defaultHomeReport 'batllm_home') -eq 'PASS') 'Windows platform default BATLLM home is outside checkout'
+
+    $insideHome = Join-Path $repo 'tmp\tests\doctor-home-inside-checkout'
+    [Environment]::SetEnvironmentVariable('BATLLM_HOME', $insideHome, 'Process')
+    $insideHomeReport = Invoke-Doctor $repo 'NonLive'
+    Assert-True ((Check-Status $insideHomeReport 'batllm_home') -eq 'WARN') 'Explicit BATLLM_HOME inside checkout is warned'
+}
+finally {
+    [Environment]::SetEnvironmentVariable('BATLLM_HOME', $previousBatllmHome, 'Process')
+}
 Assert-True ((Check-Status $report 'repository') -eq 'PASS') 'Valid repository recognised'
 Assert-True (@('PASS', 'FAIL') -contains (Check-Status $report 'python')) 'Python version was assessed'
 $projectPython = Join-Path $repo '.venv_BatLLM\Scripts\python.exe'
