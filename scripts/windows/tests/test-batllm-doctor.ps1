@@ -31,6 +31,33 @@ function Check-Status {
     return [string]$check[0].status
 }
 
+function Invoke-PipCommand {
+    param([string[]]$Arguments)
+
+    # Windows PowerShell 5.1 can turn native stderr into a terminating
+    # NativeCommandError when the caller uses ErrorActionPreference=Stop.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = & $projectPython @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $output = @($_.Exception.Message)
+        $exitCode = 1
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    if ($null -eq $exitCode) { $exitCode = 1 }
+    $text = (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
+    return [pscustomobject]@{
+        exit_code = [int]$exitCode
+        output = $text
+    }
+}
+
 Assert-True (Test-Path -LiteralPath $doctor -PathType Leaf) 'Doctor script exists'
 $before = ((& git --no-optional-locks -C $repo status --porcelain=v1) | Out-String).Trim()
 $report = Invoke-Doctor $repo 'NonLive'
@@ -72,16 +99,14 @@ if (Test-Path -LiteralPath $projectPython -PathType Leaf) {
             '--no-cache-dir', '--disable-pip-version-check'
         )
         $validArguments = $pipArguments + @('-r', $validRequirements)
-        $validOutput = & $projectPython @validArguments 2>&1
-        $validExit = $LASTEXITCODE
-        Assert-True ($validExit -eq 0) 'Compound lower/upper range accepts installed pip'
+        $validResult = Invoke-PipCommand $validArguments
+        Assert-True ($validResult.exit_code -eq 0) 'Compound lower/upper range accepts installed pip'
 
         $invalidArguments = $pipArguments + @('-r', $invalidRequirements)
-        $invalidOutput = & $projectPython @invalidArguments 2>&1
-        $invalidExit = $LASTEXITCODE
-        $invalidText = (($invalidOutput | Out-String).Trim())
-        Assert-True ($invalidExit -ne 0) 'Upper version bound rejects an installed version above the limit'
-        Assert-True (-not ($invalidText -match 'Invalid requirement|Invalid specifier|Expected matching')) 'Unsatisfied version range is distinguished from invalid syntax'
+        $invalidResult = Invoke-PipCommand $invalidArguments
+        Assert-True ($invalidResult.exit_code -ne 0) 'Upper version bound rejects an installed version above the limit'
+        Assert-True ($invalidResult.output -match 'pip<0\.1') 'Unsatisfied version range reports the rejected pip constraint'
+        Assert-True (-not ($invalidResult.output -match 'Invalid requirement|Invalid specifier|Expected matching')) 'Unsatisfied version range is distinguished from invalid syntax'
     }
     finally {
         if (Test-Path -LiteralPath $fixtureRoot) {
