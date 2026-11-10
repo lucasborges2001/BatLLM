@@ -5,7 +5,7 @@
 .DESCRIPTION
     Reuses scripts/windows/batllm-doctor.ps1, records Python and Modelito,
     captures Git metadata, and runs only python run_tests.py core.
-    Reports and Python caches default to the ignored repository-local tmp/Audits/Baseline directory.
+    Reports and Python caches default to tmp/YYYY-MM-DD/HH/Baseline inside the ignored repository-local tmp directory.
     Does not install packages, contact Ollama, or modify tracked repository files.
 .EXAMPLE
     .\scripts\windows\batllm-baseline.ps1
@@ -23,9 +23,12 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 }
 $repoPath = [IO.Path]::GetFullPath($RepoRoot)
+$runStarted = Get-Date
+$runDate = $runStarted.ToString('yyyy-MM-dd')
+$runHour = $runStarted.ToString('HH')
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $repoPath 'tmp\Audits\Baseline'
+    $OutputDirectory = Join-Path $repoPath ("tmp\$runDate\$runHour\Baseline")
 }
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
 $normalizedOutputRoot = $outputRoot.TrimEnd('\', '/')
@@ -35,7 +38,7 @@ if ($normalizedOutputRoot.Equals($normalizedRepoRoot, [StringComparison]::Ordina
 }
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+$stamp = $runStarted.ToString('yyyyMMdd-HHmmss-fff')
 $reportPath = Join-Path $outputRoot ("baseline-$stamp.json")
 $coreLogPath = Join-Path $outputRoot ("baseline-core-$stamp.log")
 $cachePath = Join-Path $outputRoot ("pycache-baseline-$stamp")

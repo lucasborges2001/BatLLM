@@ -6,7 +6,7 @@
     Executes the dedicated payload/history tests plus selected existing
     timeout, mode-reset, cancellation, and game-generation tests.
     The client is mocked; no model inference or Ollama service operation occurs.
-    JUnit, JSON, logs, and Python caches default to the ignored repository-local tmp/Audits/Connector directory.
+    JUnit, JSON, logs, and Python caches default to tmp/YYYY-MM-DD/HH/OllamaConnector inside the ignored repository-local tmp directory.
 .EXAMPLE
     .\scripts\windows\batllm-connector-audit.ps1
 #>
@@ -23,9 +23,12 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
     $RepoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 }
 $repoPath = [IO.Path]::GetFullPath($RepoRoot)
+$runStarted = Get-Date
+$runDate = $runStarted.ToString('yyyy-MM-dd')
+$runHour = $runStarted.ToString('HH')
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $repoPath 'tmp\Audits\Connector'
+    $OutputDirectory = Join-Path $repoPath ("tmp\$runDate\$runHour\OllamaConnector")
 }
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
 $normalizedOutputRoot = $outputRoot.TrimEnd('\', '/')
@@ -35,7 +38,7 @@ if ($normalizedOutputRoot.Equals($normalizedRepoRoot, [StringComparison]::Ordina
 }
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+$stamp = $runStarted.ToString('yyyyMMdd-HHmmss-fff')
 $junitPath = Join-Path $outputRoot ("connector-audit-$stamp.junit.xml")
 $logPath = Join-Path $outputRoot ("connector-audit-$stamp.log")
 $reportPath = Join-Path $outputRoot ("connector-audit-$stamp.json")
