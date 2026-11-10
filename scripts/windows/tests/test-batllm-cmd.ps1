@@ -15,7 +15,8 @@ if (-not (Test-Path -LiteralPath $sourceLauncher -PathType Leaf)) {
     throw 'The launcher under test is missing.'
 }
 
-$root = Join-Path ([IO.Path]::GetTempPath()) ('BatLLM cmd smoke ' + [guid]::NewGuid().ToString('N'))
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
+$root = Join-Path $repoRoot ('tmp\tests\BatLLM cmd smoke ' + [guid]::NewGuid().ToString('N'))
 $scriptDir = Join-Path $root 'checkout with spaces\scripts\windows'
 $otherDir = Join-Path $root 'unrelated cwd'
 $launcher = Join-Path $scriptDir 'batllm.cmd'

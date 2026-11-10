@@ -98,7 +98,7 @@ else {
 }
 
 # A path that does not exist must fail cleanly without creating it.
-$missingRoot = Join-Path ([IO.Path]::GetTempPath()) ('batllm-doctor-missing-' + [guid]::NewGuid().ToString('N'))
+$missingRoot = Join-Path $repo ('tmp\tests\missing-checkout-' + [guid]::NewGuid().ToString('N'))
 $missing = Invoke-Doctor $missingRoot 'Gameplay'
 Assert-True ((Check-Status $missing 'repository') -eq 'FAIL') 'Missing repository is diagnosed'
 Assert-True (-not (Test-Path -LiteralPath $missingRoot)) 'Doctor did not create a repository directory'

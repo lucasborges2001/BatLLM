@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $checkout = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $apply = Join-Path $checkout 'scripts\windows\batllm-apply.ps1'
-$tempDir = Join-Path ([IO.Path]::GetTempPath()) ('batllm-apply-splat-' + [guid]::NewGuid().ToString('N'))
+$fixtureRoot = Join-Path $checkout ('tmp\tests\apply-doctor-splat-' + [guid]::NewGuid().ToString('N'))
 $passes = 0
 
 function Assert-Equal {
@@ -39,8 +39,8 @@ try {
     }, $true))
     Assert-Equal $definitions.Count 1 'One Invoke-DoctorReport function found'
 
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-    $doctor = Join-Path $tempDir 'fake-doctor.ps1'
+    New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
+    $doctor = Join-Path $fixtureRoot 'fake-doctor.ps1'
     @'
 [CmdletBinding()]
 param(
@@ -60,7 +60,7 @@ if (-not $Json) { throw 'Mock Doctor requires -Json' }
 
     # Extract only the helper; do not execute Apply's setup path.
     . ([scriptblock]::Create($definitions[0].Extent.Text))
-    $repo = Join-Path $tempDir 'mock checkout'
+    $repo = Join-Path $fixtureRoot 'mock checkout'
 
     $nonLive = Invoke-DoctorReport 'NonLive'
     Assert-Equal $nonLive.target 'NonLive' 'NonLive named Target binding'
@@ -79,7 +79,7 @@ if (-not $Json) { throw 'Mock Doctor requires -Json' }
     Write-Output ('Apply Doctor splatting regression: ' + $passes + ' PASS')
 }
 finally {
-    if (Test-Path -LiteralPath $tempDir) {
-        Remove-Item -LiteralPath $tempDir -Recurse -Force
+    if (Test-Path -LiteralPath $fixtureRoot) {
+        Remove-Item -LiteralPath $fixtureRoot -Recurse -Force
     }
 }

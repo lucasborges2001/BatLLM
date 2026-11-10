@@ -10,7 +10,7 @@ $doctor = Join-Path $repo 'scripts\windows\batllm-doctor.ps1'
 $priorLocal = [Environment]::GetEnvironmentVariable('LOCALAPPDATA', 'Process')
 $priorProgramFiles = [Environment]::GetEnvironmentVariable('ProgramFiles', 'Process')
 $priorHome = [Environment]::GetEnvironmentVariable('BATLLM_HOME', 'Process')
-$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('batllm-doctor-gameplay-' + [guid]::NewGuid().ToString('N'))
+$fixtureRoot = Join-Path $repo ('tmp\tests\doctor-gameplay-' + [guid]::NewGuid().ToString('N'))
 $global:BatllmDoctorMockScenario = 'unreachable'
 $global:BatllmDoctorApiCalls = 0
 $passes = 0
@@ -58,10 +58,10 @@ function Get-Report {
 
 try {
     if (-not (Test-Path -LiteralPath $doctor -PathType Leaf)) { throw 'Doctor script is missing' }
-    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
-    $env:LOCALAPPDATA = Join-Path $tempRoot 'LocalAppData'
-    $env:ProgramFiles = Join-Path $tempRoot 'ProgramFiles'
-    $env:BATLLM_HOME = Join-Path $tempRoot 'State'
+    New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
+    $env:LOCALAPPDATA = Join-Path $fixtureRoot 'LocalAppData'
+    $env:ProgramFiles = Join-Path $fixtureRoot 'ProgramFiles'
+    $env:BATLLM_HOME = Join-Path $fixtureRoot 'State'
     $cli = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
     $before = ((& git --no-optional-locks -C $repo status --porcelain=v1) | Out-String).Trim()
 
@@ -115,5 +115,5 @@ finally {
     [Environment]::SetEnvironmentVariable('ProgramFiles', $priorProgramFiles, 'Process')
     [Environment]::SetEnvironmentVariable('BATLLM_HOME', $priorHome, 'Process')
     Remove-Variable -Name BatllmDoctorMockScenario, BatllmDoctorApiCalls -Scope Global -ErrorAction SilentlyContinue
-    if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
+    if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
 }
