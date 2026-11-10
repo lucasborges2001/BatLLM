@@ -79,11 +79,6 @@ function Get-LocalOllamaApi {
     }
 }
 
-function Normalize-PackageName {
-    param([string]$Name)
-    return (($Name.ToLowerInvariant() -replace '[_.]+', '-') -replace '-+', '-')
-}
-
 try {
     $repoPath = [System.IO.Path]::GetFullPath($RepoRoot)
 }
@@ -204,60 +199,32 @@ elseif (-not $venvAvailable) {
     Add-Check 'dependencies' 'NOT_CHECKED' 'Create the project virtual environment first.'
 }
 else {
-    # importlib.metadata is part of Python; no pip invocation or network access.
-    $packageCode = "import json, importlib.metadata as m; print(json.dumps({d.metadata.get('Name', '').lower().replace('_', '-').replace('.', '-'): d.version for d in m.distributions()}))"
-    $packageResult = Invoke-ReadOnlyCommand $venvPython @('-B', '-c', $packageCode)
-    if ($packageResult.code -ne 0) {
-        Add-Check 'dependencies' 'FAIL' ('Cannot inspect installed distributions: ' + $packageResult.output)
+    # Let pip's PEP 508/440 parser evaluate every direct requirement. This is
+    # strictly a local dry-run: no index, no dependency resolution, no cache,
+    # and no package installation.
+    $requirementCount = @(
+        Get-Content -LiteralPath $requirementsFile |
+            Where-Object { $_ -notmatch '^\s*(#|$)' }
+    ).Count
+    $dependencyArguments = @(
+        '-B', '-m', 'pip', 'install',
+        '--isolated',
+        '--dry-run',
+        '--no-index',
+        '--no-deps',
+        '--no-cache-dir',
+        '--disable-pip-version-check',
+        '-r', $requirementsFile
+    )
+    $dependencyResult = Invoke-ReadOnlyCommand $venvPython $dependencyArguments
+    if ($dependencyResult.code -ne 0) {
+        Add-Check 'dependencies' 'FAIL' ('Installed distributions do not satisfy requirements.txt: ' + $dependencyResult.output) 'Review the reported requirement conflict; no packages were installed.'
+    }
+    elseif ($requirementCount -eq 0) {
+        Add-Check 'dependencies' 'NOT_CHECKED' 'requirements.txt contains no direct requirements.'
     }
     else {
-        try {
-            $installed = $packageResult.output | ConvertFrom-Json
-            $issues = New-Object 'System.Collections.Generic.List[string]'
-            $count = 0
-            foreach ($line in (Get-Content -LiteralPath $requirementsFile)) {
-                if ($line -match '^\s*(#|$)') { continue }
-                if ($line -notmatch '^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(==|>=)\s*([0-9][A-Za-z0-9.+_-]*)\s*(?:#.*)?$') {
-                    [void]$issues.Add('Unsupported requirement syntax: ' + $line)
-                    continue
-                }
-                $name = Normalize-PackageName $Matches[1]
-                $comparison = $Matches[2]
-                $wanted = $Matches[3]
-                $count++
-                $distribution = $installed.PSObject.Properties[$name]
-                if ($null -eq $distribution) {
-                    [void]$issues.Add($name + ' is missing')
-                    continue
-                }
-                $found = [string]$distribution.Value
-                if ($comparison -eq '==' -and $found -ne $wanted) {
-                    [void]$issues.Add($name + ': installed ' + $found + ', expected ' + $wanted)
-                }
-                elseif ($comparison -eq '>=') {
-                    try {
-                        if ([version]$found -lt [version]$wanted) {
-                            [void]$issues.Add($name + ': installed ' + $found + ', minimum ' + $wanted)
-                        }
-                    }
-                    catch {
-                        [void]$issues.Add($name + ': could not compare ' + $found + ' with ' + $wanted)
-                    }
-                }
-            }
-            if ($issues.Count -gt 0) {
-                Add-Check 'dependencies' 'FAIL' ($issues -join '; ') 'Use a separately authorised setup step to repair dependencies.'
-            }
-            elseif ($count -eq 0) {
-                Add-Check 'dependencies' 'NOT_CHECKED' 'No supported requirements were found.'
-            }
-            else {
-                Add-Check 'dependencies' 'PASS' ($count.ToString() + ' direct requirements meet declared constraints; transitive health was not checked.')
-            }
-        }
-        catch {
-            Add-Check 'dependencies' 'FAIL' ('Unable to parse dependency inventory: ' + $_.Exception.Message)
-        }
+        Add-Check 'dependencies' 'PASS' ($requirementCount.ToString() + ' direct requirements satisfy their declared PEP 508/440 constraints; pip dry-run used no index and installed nothing. Transitive health was not checked.')
     }
 }
 
