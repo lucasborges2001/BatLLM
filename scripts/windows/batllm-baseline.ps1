@@ -5,8 +5,8 @@
 .DESCRIPTION
     Reuses scripts/windows/batllm-doctor.ps1, records Python and Modelito,
     captures Git metadata, and runs only python run_tests.py core.
-    Reports and Python caches are written outside the repository.
-    Does not install packages, contact Ollama, or modify repository files.
+    Reports and Python caches default to the ignored repository-local tmp/Audits/Baseline directory.
+    Does not install packages, contact Ollama, or modify tracked repository files.
 .EXAMPLE
     .\scripts\windows\batllm-baseline.ps1
 #>
@@ -25,13 +25,13 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 $repoPath = [IO.Path]::GetFullPath($RepoRoot)
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path ([IO.Path]::GetTempPath()) 'BatLLM\Audits'
+    $OutputDirectory = Join-Path $repoPath 'tmp\Audits\Baseline'
 }
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
-$repoPrefix = $repoPath.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-if ($outputRoot.Equals($repoPath, [StringComparison]::OrdinalIgnoreCase) -or
-    $outputRoot.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'OutputDirectory must be outside the repository.'
+$normalizedOutputRoot = $outputRoot.TrimEnd('\', '/')
+$normalizedRepoRoot = $repoPath.TrimEnd('\', '/')
+if ($normalizedOutputRoot.Equals($normalizedRepoRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'OutputDirectory must be a dedicated directory, not the repository root.'
 }
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
@@ -142,9 +142,13 @@ try {
         $doctorText = (($doctorRaw | ForEach-Object { [string]$_ }) -join [Environment]::NewLine).Trim()
         $doctorReport = $doctorText | ConvertFrom-Json
         foreach ($requiredName in @('repository', 'virtualenv', 'python', 'dependencies')) {
-            $match = @($doctorReport.checks | Where-Object { $_.name -eq $requiredName } | Select-Object -First 1)
-            if ($match.Count -ne 1 -or $match[0].status -ne 'PASS') {
-                $hardFailures.Add("Doctor prerequisite '$requiredName' did not PASS.")
+            $doctorChecks = @($doctorReport.checks | Where-Object { $_.name -eq $requiredName })
+            if ($doctorChecks.Count -ne 1) {
+                $hardFailures.Add("Windows Doctor prerequisite '$requiredName' returned $($doctorChecks.Count) checks; expected exactly one.")
+            }
+            elseif ($doctorChecks[0].status -ne 'PASS') {
+                $detail = [string]$doctorChecks[0].detail
+                $hardFailures.Add("Windows Doctor prerequisite '$requiredName' is $($doctorChecks[0].status): $detail")
             }
         }
         if ([int]$doctorReport.summary.WARN -gt 0) {
@@ -264,6 +268,12 @@ try {
     Write-Output ("Python: " + $(if ($null -ne $pythonInfo) { $pythonInfo.python } else { 'NOT_CHECKED' }))
     Write-Output ("Modelito: " + $(if ($null -ne $pythonInfo) { $pythonInfo.modelito } else { 'NOT_CHECKED' }) + " (required: " + $requiredModelito + ")")
     Write-Output ("Core tests: " + $core.status + " (exit " + $core.exit_code + ")")
+    foreach ($failure in $hardFailures) {
+        Write-Output ("FAILURE: " + $failure)
+    }
+    foreach ($warning in $warnings) {
+        Write-Output ("WARNING: " + $warning)
+    }
     Write-Output ("Report: " + $reportPath)
     if ($result -eq 'FAIL') { exit 1 }
     if ($result -eq 'WARN') { exit 2 }

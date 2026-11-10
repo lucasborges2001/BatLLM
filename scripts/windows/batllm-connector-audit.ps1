@@ -6,7 +6,7 @@
     Executes the dedicated payload/history tests plus selected existing
     timeout, mode-reset, cancellation, and game-generation tests.
     The client is mocked; no model inference or Ollama service operation occurs.
-    JUnit, JSON, logs, and Python caches are written outside the repository.
+    JUnit, JSON, logs, and Python caches default to the ignored repository-local tmp/Audits/Connector directory.
 .EXAMPLE
     .\scripts\windows\batllm-connector-audit.ps1
 #>
@@ -25,13 +25,13 @@ if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
 $repoPath = [IO.Path]::GetFullPath($RepoRoot)
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path ([IO.Path]::GetTempPath()) 'BatLLM\Audits'
+    $OutputDirectory = Join-Path $repoPath 'tmp\Audits\Connector'
 }
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)
-$repoPrefix = $repoPath.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-if ($outputRoot.Equals($repoPath, [StringComparison]::OrdinalIgnoreCase) -or
-    $outputRoot.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'OutputDirectory must be outside the repository.'
+$normalizedOutputRoot = $outputRoot.TrimEnd('\', '/')
+$normalizedRepoRoot = $repoPath.TrimEnd('\', '/')
+if ($normalizedOutputRoot.Equals($normalizedRepoRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'OutputDirectory must be a dedicated directory, not the repository root.'
 }
 New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 

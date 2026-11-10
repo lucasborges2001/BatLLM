@@ -233,3 +233,6 @@ releases/
 *.avi
 logs/
 .idea/
+
+# Local test and audit artefacts
+/tmp/
