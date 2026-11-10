@@ -250,6 +250,19 @@ python -m pytest -q src/tests
 
 The non-live suite is the normal validation path for gameplay, UI logic, analysis, path handling, packaging helpers, and research contracts.
 
+### Focused Windows audits
+
+Run these additional PowerShell checks from the repository root:
+
+```powershell
+.\scripts\windows\batllm-baseline.ps1
+.\scripts\windows\batllm-connector-audit.ps1
+```
+
+The baseline reuses the read-only Windows Doctor, verifies the installed Python and pinned Modelito version, records the Git branch/SHA/worktree, and runs `python run_tests.py core`. Reports and Python caches are written outside the checkout under `%TEMP%\BatLLM\Audits`.
+
+The connector audit runs the dedicated payload/history contract tests and selected existing timeout, mode-reset, cancellation and new-game tests. It replaces the connector's Modelito client with a deterministic mock, so it does not contact Ollama or execute model inference. The JUnit report records the tests actually collected and run. This is not a substitute for the complete non-live suite or live/native acceptance.
+
 ### Live Ollama suite
 
 ```bash

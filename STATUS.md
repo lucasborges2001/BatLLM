@@ -1,6 +1,6 @@
 # BatLLM status
 
-Last updated: 2026-11-06 22:45
+Last updated: 2026-11-10 16:03
 
 ## Project and release phase
 
@@ -31,6 +31,13 @@ python run_tests.py non-live
 python tools/check_docs.py
 ```
 
+Windows PowerShell focused audits (read-only baseline and mocked connector contract; reports under %TEMP%\BatLLM\Audits):
+
+```powershell
+.\scripts\windows\batllm-baseline.ps1
+.\scripts\windows\batllm-connector-audit.ps1
+```
+
 Headless validation uses `KIVY_WINDOW=mock`, `KIVY_NO_ARGS=1` and `KIVY_NO_CONSOLELOG=1`. The non-live suite binds temporary loopback HTTP servers and isolates `BATLLM_HOME`. `python run_tests.py full` mutates a real Ollama service and requires explicit maintainer intent.
 
 ## Architecture and important paths
@@ -41,6 +48,9 @@ Headless validation uses `KIVY_WINDOW=mock`, `KIVY_NO_ARGS=1` and `KIVY_NO_CONSO
 - `src/configs/app_config.py`: section-validated loading, execution-only setting overrides and atomic preference writes.
 - `src/configs/configurator.py`: standalone editor using the same strict transport and explicit-endpoint management operations.
 - `src/util/paths.py`: resources, user state and legacy-session copying.
+- `scripts/windows/batllm-baseline.ps1`: read-only Git/Python/Modelito baseline and core preflight.
+- `scripts/windows/batllm-connector-audit.ps1`: focused mocked OllamaConnector contract suite with JUnit and JSON evidence.
+- `src/tests/test_ollama_connector_contract.py`: exact shared/independent messages payload, augmentation, reset, retry and rollback contracts.
 - `src/view/` and `src/analyzer_model.py`: Kivy screens and analyser presentation.
 - `create_release_bundles.py`: full source archives and smaller platform runtime bundles; research packaging is separate.
 - `research/urucon2026/`: implementation-owned corpus, results, schema, claims and reproducibility package. The editable paper remains in `krahd/academic-writing`.
@@ -54,6 +64,8 @@ Shipped defaults in `src/configs/config.yaml` are read-only. Preferences and rel
 Both management interfaces use explicit BatLLM endpoints and the guarded service facade. Temporary game/UI settings are excluded from incidental preference saves. Ownership receipts are stored in the user directory, allowing a helper subprocess to start a service that the application can later stop safely.
 
 ## Validation evidence
+
+Workshop baseline and connector-audit tooling has been added to this branch but has not yet been executed on the target Windows checkout. The connector audit captures the arguments passed to the mocked `Client.chat`; it does not verify serialised HTTP bytes or live model behaviour.
 
 Pre-fork verification on 6 November 2026 used a fresh Python 3.12 environment
 installed from `requirements.txt`, including the published Modelito 1.4.8:
@@ -93,10 +105,11 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 - **A3 — small-window gameplay:** command headings and footer actions clip/overlap at 800×600. Enlarging the window worked; responsive/minimum-size behaviour needs repair.
 - **A4 — download deadline:** management downloads check elapsed time only after an event arrives. A local delayed stream exceeded the requested total timeout. Enforce the remaining deadline during reads and add a partial-progress stall regression.
 - Native first-run on Linux/Windows, Homebrew GUI gameplay/save, missing/stopped/unresponsive Ollama UI recovery, actual download/deletion, native malformed-output and damage/fatal-shot paths, exhaustive save/exit/recovery and accessibility remain acceptance work. See the audit for the exact scope.
+- The new connector contract audit is mocked; live Ollama transport, model behaviour and native gameplay remain separate validation requirements.
 - Saved v2 sessions do not preserve context/augmentation modes per round or authenticate per-request model identity. v2 analysis is weaker than the v3 research contract; neither authenticates a serving binary or model weights.
 - Ownership receipts identify BatLLM-launched processes, not per-client model ownership within a shared server. Explicit model deletion/download controls still affect real shared resources.
 - Console cancellation retires UI output immediately and closes its iterator when a fragment or configured read deadline returns; it does not abort a blocked provider read instantly.
 - Finish the UI consistency and accessibility work in `docs/UI_UNIFICATION_PLAN_1_0.md` before 1.0 sign-off.
 - Longer term: separate remaining Kivy coordination, then design the server contract for networked play before adding clients or shared repositories.
 
-Last updated: 2026-11-06 22:45
+Last updated: 2026-11-10 16:03
