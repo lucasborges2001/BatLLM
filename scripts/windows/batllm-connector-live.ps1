@@ -112,6 +112,9 @@ $previousEnvironment = @{
     PYTHONDONTWRITEBYTECODE = [Environment]::GetEnvironmentVariable('PYTHONDONTWRITEBYTECODE', 'Process')
     PYTEST_ADDOPTS = [Environment]::GetEnvironmentVariable('PYTEST_ADDOPTS', 'Process')
     PYTHONPATH = [Environment]::GetEnvironmentVariable('PYTHONPATH', 'Process')
+    TEMP = [Environment]::GetEnvironmentVariable('TEMP', 'Process')
+    TMP = [Environment]::GetEnvironmentVariable('TMP', 'Process')
+    TMPDIR = [Environment]::GetEnvironmentVariable('TMPDIR', 'Process')
 }
 
 try {
@@ -149,6 +152,9 @@ try {
     $env:PYTHONPYCACHEPREFIX = $cachePath
     $env:PYTHONDONTWRITEBYTECODE = '1'
     $env:PYTEST_ADDOPTS = '-p no:cacheprovider'
+    $env:TEMP = $outputRoot
+    $env:TMP = $outputRoot
+    $env:TMPDIR = $outputRoot
     $srcPath = Join-Path $repoPath 'src'
     $oldPythonPath = $previousEnvironment.PYTHONPATH
     $env:PYTHONPATH = if ([string]::IsNullOrWhiteSpace($oldPythonPath)) {
