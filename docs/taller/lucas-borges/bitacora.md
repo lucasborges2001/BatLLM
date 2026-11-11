@@ -79,7 +79,50 @@ La suite Python registró **193 PASS, 1 FAIL y 2 SKIP**. El fallo correspondía 
 
 No se creó PR ni se publicó nada en upstream.
 
+
+## 10 de noviembre de 2026 — auditoría del Connector e integración real
+
+**Tiempo:** no informado.  
+**Repositorio:** lucasborges2001/BatLLM.  
+**Rama:** docs/taller-lucas-borges.  
+**SHA probado localmente:** ad06d424ce3175f807d3fceba81819c7c6e0be98.
+
+**Actualización del checkout:**
+- Ejecuté git pull --ff-only. La rama avanzó de 0ea90e7 a ad06d42 mediante dos commits: 385cd37 y ad06d42.
+- git status --short --branch quedó limpio después de actualizar y también después de ejecutar las pruebas.
+- Los dos commits añadieron la prueba optativa de integración real y su ejecutor PowerShell. No se modificó código de producto.
+
+**Auditoría del Connector:**
+- Ejecuté scripts/windows/batllm-connector-audit.ps1.
+- Resultado: **PASS**, 14 tests, 0 failures, 0 errors y 0 skipped.
+- SHA probado: ad06d424ce3175f807d3fceba81819c7c6e0be98.
+- El runner usa un Client simulado para inspeccionar contratos, payloads e historial. Es evidencia de regresión/contrato, no una inferencia real contra Ollama.
+- Informe JUnit: tmp/2026-11-10/21/OllamaConnector/connector-audit-20261110-213811-804.junit.xml.
+- Informe JSON: tmp/2026-11-10/21/OllamaConnector/connector-audit-20261110-213811-804.json.
+
+**Integración real:**
+- Ejecuté scripts/windows/batllm-connector-live.ps1 sin override de modelo: **FAIL**, 1 test, 1 failure, 0 errors y 0 skipped.
+- Repetí con el argumento literal -Model "modelo:tag": **FAIL**, 1 test, 1 failure, 0 errors y 0 skipped.
+- Ambas ejecuciones informaron el mismo SHA probado: ad06d424ce3175f807d3fceba81819c7c6e0be98.
+- Primer informe: tmp/2026-11-10/21/OllamaConnectorLive/connector-live-20261110-213823-509.junit.xml; log y JSON con el mismo prefijo.
+- Segundo informe: tmp/2026-11-10/21/OllamaConnectorLive/connector-live-20261110-213837-918.junit.xml; log y JSON con el mismo prefijo.
+
+**Interpretación y límites:**
+- La prueba no quedó omitida: pytest informó 1 test ejecutado y 0 skipped.
+- El resumen de consola no incluye el mensaje de fallo. Sin el contenido del JUnit, log o JSON no se puede determinar si falló la consulta al endpoint, la comprobación del modelo instalado, una inferencia o una aserción del historial.
+- El segundo comando utilizó el texto de ejemplo modelo:tag. No se aportó evidencia de que ese nombre exista en el inventario local de Ollama.
+- No se declara la integración real como validada ni se atribuye todavía el fallo al producto.
+- La auditoría simulada PASS y la integración real FAIL son resultados de alcances distintos y no se contradicen.
+
+**Siguiente paso:** revisar el JUnit, log y JSON de una ejecución real con el nombre exacto de un modelo que figure en ollama list. Clasificar primero el fallo; corregir código o prueba solo después de localizar la causa.
+
 ## Pendientes actuales
+
+- Diagnosticar el FAIL de la integración real OllamaConnector usando el JUnit, log y JSON generados el 10/11; la causa todavía no está determinada.
+- Repetir la integración con un nombre de modelo confirmado en el inventario local de Ollama y conservar el SHA probado en el informe.
+- Una vez validado el recorrido real, ampliar las pruebas a aislamiento entre bots, cambios de modo y límites de partida/ronda.
+- Completar el replay y revisar State Diff de la sesión del 27/10.
+- Investigar la causa del bloqueo de interfaz observado el 27/10.
 
 - Verificar la construcción y el aislamiento del historial en la integración real de **src/game/ollama_connector.py** / modelito.
 - Completar el replay y revisar State Diff de la sesión del 27/10.
