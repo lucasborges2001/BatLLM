@@ -116,7 +116,46 @@ No se creó PR ni se publicó nada en upstream.
 
 **Siguiente paso:** revisar el JUnit, log y JSON de una ejecución real con el nombre exacto de un modelo que figure en ollama list. Clasificar primero el fallo; corregir código o prueba solo después de localizar la causa.
 
+
+## 17 de noviembre de 2026 — P0: diagnóstico y validación real de OllamaConnector
+
+**Tiempo informado:** 17:00–20:00 (3 h). La franja se registra como tiempo de trabajo informado; no hubo cronómetro de dedicación efectiva. Los tiempos de inferencia indicados abajo sí proceden de la medición del test.
+
+**Repositorio:** lucasborges2001/BatLLM.  
+**Rama:** docs/taller-lucas-borges.  
+**SHA final validado:** 56b4e432ea3381bce0ccbe7cff7658092a9fa1e3.
+
+**Diagnóstico del entorno y de los fallos históricos:**
+- Incorporé el **OllamaConnector Doctor**, su prueba simulada y la documentación específica mediante el commit **170a9d9**. El cambio añadió **scripts/windows/batllm-connector-doctor.ps1**, **scripts/windows/tests/test-batllm-connector-doctor.ps1** y **docs/taller/lucas-borges/experimentos/ollama-connector-doctor.md**.
+- En Windows, las pruebas simuladas del Doctor finalizaron con **18/18 PASS**. El Doctor estático también informó PASS.
+- El preflight real detectó Ollama **0.40.16**, endpoint **http://127.0.0.1:11434** y el modelo instalado **smollm2:360m**. Se comprobó que **smollm2** no coincide con el tag instalado; el modelo debía seleccionarse con su nombre exacto.
+- Revisé los dos FAIL históricos del 10/11. Ambos se detuvieron en la precondición de modelo no instalado (**smollm2** y el literal **modelo:tag**); no constituyen evidencia de una inferencia fallida ni de un defecto del Connector.
+
+**Localización y corrección del FAIL de integración:**
+- La primera ejecución real con **smollm2:360m**, sobre SHA **170a9d91ad20**, devolvió una primera respuesta no vacía, pero falló porque el test exigía un mensaje **system** que no existía en el historial.
+- La configuración de la prueba usa contexto independiente y **prompt_augmentation=False**; el archivo de instrucciones correspondiente está vacío. En ese escenario, el historial esperado es **user → assistant**, no **system → user → assistant**.
+- La causa estaba en la expectativa del test, no en el comportamiento observado del Connector. Corregí únicamente **src/tests/test_ollama_connector_live.py**, mediante el commit **56b4e43**. El test ahora comprueba el historial real de ambos mensajes y registra el tiempo individual de cada inferencia. No se modificó código de producto ni el contenido de las instrucciones.
+
+**Validación final en Windows:**
+- **scripts/windows/batllm-connector-audit.ps1**: **PASS**, 14 tests, 0 failures, 0 errors y 0 skipped; SHA probado **56b4e432ea33**.
+- **scripts/windows/batllm-connector-live.ps1 -Model "smollm2:360m"**: **PASS**, 1 test, 0 failures, 0 errors y 0 skipped; se ejecutaron dos inferencias reales y se verificó el historial conversacional.
+- Primera inferencia: **8,970 s**, respuesta de 441 caracteres.
+- Segunda inferencia: **6,421 s**, respuesta de 464 caracteres.
+- Tiempo acumulado medido de inferencia: **15,391 s**. Duración del testcase en JUnit: **17,589 s**. Duración total de pytest: **19,80 s**.
+- El JSON del runner informó **repository_status_unchanged=True**, **sha_unchanged=True** y **warnings=[]**. **git status --short --branch** quedó limpio en **docs/taller-lucas-borges**, sincronizada con origin, sobre el SHA probado.
+
+**Evidencia local generada (no incorporada al repositorio):**
+- Doctor: **tmp/2026-11-17/19/ConnectorDoctor/connector-doctor-20261117-193155-787.json** y **.txt**.
+- Auditoría: **tmp/2026-11-17/19/OllamaConnector/connector-audit-20261117-194159-648.junit.xml** y **.json**.
+- Integración real: **tmp/2026-11-17/19/OllamaConnectorLive/connector-live-20261117-194211-674.junit.xml**, **.log** y **.json**.
+
+**Resultado y alcance:** P0 cerrado con PASS para el preflight del entorno, la auditoría de contratos y el recorrido real de dos mensajes consecutivos en un mismo contexto con **smollm2:360m**. Esto no valida concurrencia entre bots, recuperación ante desconexiones ni todos los flujos de partida/UI; quedan fuera del alcance de este P0.
+
 ## Pendientes actuales
+
+- Ampliar la validación del Connector a aislamiento entre bots, cambios de modo, límites de partida/ronda, concurrencia y recuperación ante desconexiones. El P0 solo validó dos mensajes consecutivos en un mismo contexto.
+- Completar el replay y revisar State Diff de la sesión del 27/10.
+- Investigar la causa del bloqueo de interfaz observado el 27/10.
 
 - Diagnosticar el FAIL de la integración real OllamaConnector usando el JUnit, log y JSON generados el 10/11; la causa todavía no está determinada.
 - Repetir la integración con un nombre de modelo confirmado en el inventario local de Ollama y conservar el SHA probado en el informe.
