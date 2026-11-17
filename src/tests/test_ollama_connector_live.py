@@ -6,6 +6,7 @@ It never starts/stops the service, downloads/deletes models, or persists setting
 from __future__ import annotations
 
 import os
+from time import perf_counter
 
 import pytest
 
@@ -85,34 +86,42 @@ def test_live_connector_sends_two_messages_and_retains_conversation() -> None:
     first_prompt = "Reply with exactly M"
     second_prompt = "Reply with exactly S0"
 
+    first_started = perf_counter()
     first_response = connector.send_prompt_to_llm_sync(
         1, user_text=first_prompt, game_state={}
     )
+    first_seconds = perf_counter() - first_started
     assert isinstance(first_response, str) and first_response.strip()
+    print(f"First Connector inference: {first_seconds:.3f}s")
 
+    # The shipped independent/non-augmented instructions file is empty.
+    # An empty system header must not be inserted in the conversation.
+    assert not connector._system_instructions.strip()
     history = connector._get_history_ref(1)
-    assert [message["role"] for message in history] == [
-        "system", "user", "assistant"
-    ]
-    assert history[1]["content"] == first_prompt
-    assert history[2]["content"] == first_response
+    assert [message["role"] for message in history] == ["user", "assistant"]
+    assert history[0]["content"] == first_prompt
+    assert history[1]["content"] == first_response
 
+    second_started = perf_counter()
     second_response = connector.send_prompt_to_llm_sync(
         1, user_text=second_prompt, game_state={}
     )
+    second_seconds = perf_counter() - second_started
     assert isinstance(second_response, str) and second_response.strip()
+    print(f"Second Connector inference: {second_seconds:.3f}s")
 
     history = connector._get_history_ref(1)
     assert [message["role"] for message in history] == [
-        "system", "user", "assistant", "user", "assistant"
+        "user", "assistant", "user", "assistant"
     ]
-    assert history[1]["content"] == first_prompt
-    assert history[2]["content"] == first_response
-    assert history[3]["content"] == second_prompt
-    assert history[4]["content"] == second_response
+    assert history[0]["content"] == first_prompt
+    assert history[1]["content"] == first_response
+    assert history[2]["content"] == second_prompt
+    assert history[3]["content"] == second_response
 
     print(
         "OllamaConnector live smoke: "
         f"model={model} endpoint={url}:{port} "
-        f"response_lengths={len(first_response)},{len(second_response)}"
+        f"response_lengths={len(first_response)},{len(second_response)} "
+        f"inference_seconds={first_seconds:.3f},{second_seconds:.3f}"
     )
