@@ -49,7 +49,10 @@ class LanBatLLM(BatLLM):
         print(f"Servidor: http://{self._lan_server.advertise_host}:{self._lan_server.port}")
         print(f"Jugador 1: {urls[1]}")
         print(f"Jugador 2: {urls[2]}")
-        print("Compartí cada enlace con un jugador de la misma red local.\n")
+        print("Compartí cada enlace con un jugador de la misma red local.")
+        if self._lan_server.advertise_host.startswith("127."):
+            print("No se detectó una IP LAN; los enlaces solo funcionarán en esta PC.")
+        print("Si Windows Firewall pregunta, permití Python en redes privadas.\n")
 
     def on_stop(self):
         if self._lan_server is not None:

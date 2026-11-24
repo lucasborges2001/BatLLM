@@ -1,6 +1,6 @@
 # BatLLM status
 
-Last updated: 2026-11-06 22:45
+Last updated: 2026-11-24 11:33
 
 ## Project and release phase
 
@@ -8,6 +8,7 @@ BatLLM is a Python/Kivy research, education and two-player battle game. Human pr
 
 ## Current capabilities
 
+- Experimental two-player LAN web mode: `python run_batllm_lan.py` starts the existing Kivy game and a local HTTP server, then prints one tokenised browser link per player. Browser prompts are submitted to the existing `GameBoard`; the host's Ollama configuration remains authoritative. This is a single in-memory room for same-LAN use.
 - Two players, two bots, round prompts, shared or independent conversation histories, and optional game-state prompt augmentation.
 - Asynchronous gameplay requests, guarded inference callbacks and guarded scheduled turns; fresh histories for new games and conversation/state rollback for cancelled rounds.
 - Strict native Ollama inference through the shared published Modelito 1.4.8 adapter; structured roles, generation options, `stream: false`, explicit deadlines and propagated errors.
@@ -25,6 +26,7 @@ Python `3.10`–`3.12` (`3.12` recommended); macOS, Linux and Windows. Homebrew 
 ```bash
 python -m pip install -r requirements.txt
 python run_batllm.py
+python run_batllm_lan.py
 python run_game_analyzer.py
 python run_tests.py core
 python run_tests.py non-live
@@ -35,6 +37,8 @@ Headless validation uses `KIVY_WINDOW=mock`, `KIVY_NO_ARGS=1` and `KIVY_NO_CONSO
 
 ## Architecture and important paths
 
+- `run_batllm_lan.py`: experimental Kivy host and two-player LAN launcher.
+- `src/network/`: tokenised two-seat HTTP server, Kivy-thread bridge and static browser client.
 - `src/game/`: Kivy coordination, pure replay semantics, histories, v2 sessions and v3 research traces.
 - `src/llm/chat.py`: shared strict inference adapter for desktop and research.
 - `src/llm/service.py`: BatLLM configuration, explicit-endpoint management operations and owned-process lifecycle.
@@ -54,6 +58,8 @@ Shipped defaults in `src/configs/config.yaml` are read-only. Preferences and rel
 Both management interfaces use explicit BatLLM endpoints and the guarded service facade. Temporary game/UI settings are excluded from incidental preference saves. Ownership receipts are stored in the user directory, allowing a helper subprocess to start a service that the application can later stop safely.
 
 ## Validation evidence
+
+The LAN MVP is committed on `feature/online-lan-mvp` at `330e0f3` with focused HTTP tests for invitation links, player seats, prompt validation and shared round start. Hosted Multiplatform Validation was queued for that commit. The new tests have not yet been executed in a local checkout; no real Ollama game or cross-device LAN session has been validated.
 
 Pre-fork verification on 6 November 2026 used a fresh Python 3.12 environment
 installed from `requirements.txt`, including the published Modelito 1.4.8:
@@ -87,6 +93,7 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 
 ## Known limitations and pending work
 
+- Experimental LAN web MVP: the host must run the Kivy desktop app and its configured Ollama service; clients use plain HTTP on the same LAN. It supports one in-memory room and two fixed seats. There is no TLS, Internet tunnel, persistence, host-restart recovery, spectator mode, multiple rooms or production-grade identity/rate limiting. Windows Firewall may need to allow Python on private networks. Real-browser, real-Ollama and cross-device validation remain pending.
 - Homebrew publishing hardening (31 October 2026): the publish job is restricted to `krahd/BatLLM`, so workshop-fork tags cannot publish to the shared tap. The tap clone uses pinned `actions/checkout@v6` with a scoped repository token, rather than embedding that token in the Git remote URL. Workflow execution after this change has not yet been validated; the shared token's provider-side scope and rotation remain to verify.
 
 - **A1/A2 repaired:** bundle installers select/check Python 3.10–3.12 and smoke checks validate the installed interpreter; the analyser uses a single custom file-list layout so native row selection works. Windows/Linux native installer acceptance remains unrun.
@@ -99,4 +106,4 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 - Finish the UI consistency and accessibility work in `docs/UI_UNIFICATION_PLAN_1_0.md` before 1.0 sign-off.
 - Longer term: separate remaining Kivy coordination, then design the server contract for networked play before adding clients or shared repositories.
 
-Last updated: 2026-11-06 22:45
+Last updated: 2026-11-24 11:33

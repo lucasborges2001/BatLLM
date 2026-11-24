@@ -16,7 +16,7 @@ from configs.app_config import config
 
 
 MAX_PROMPT_LENGTH = 4000
-MAX_REQUEST_BYTES = 16 * 1024
+MAX_REQUEST_BYTES = 32 * 1024
 WEB_ROOT = Path(__file__).resolve().parent / "web"
 
 
@@ -221,8 +221,6 @@ class LanServer:
                     return None, None
                 token = parts[3]
                 player_id = owner.player_for_token(token)
-                if player_id is None:
-                    return None, None
                 return parts[2], player_id
 
             def do_GET(self):
@@ -242,6 +240,9 @@ class LanServer:
 
                 route, player_id = self._token_route()
                 if route == "state":
+                    if player_id is None:
+                        self._json(403, {"error": "Enlace de invitación inválido."})
+                        return
                     try:
                         self._json(200, owner._bridge.snapshot(player_id))
                     except LanRequestError as exc:
@@ -253,6 +254,9 @@ class LanServer:
                 route, player_id = self._token_route()
                 if route != "prompts":
                     self._json(404, {"error": "Ruta no encontrada."})
+                    return
+                if player_id is None:
+                    self._json(403, {"error": "Enlace de invitación inválido."})
                     return
 
                 try:
