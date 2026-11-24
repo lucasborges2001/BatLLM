@@ -151,6 +151,33 @@ No se creó PR ni se publicó nada en upstream.
 
 **Resultado y alcance:** P0 cerrado con PASS para el preflight del entorno, la auditoría de contratos y el recorrido real de dos mensajes consecutivos en un mismo contexto con **smollm2:360m**. Esto no valida concurrencia entre bots, recuperación ante desconexiones ni todos los flujos de partida/UI; quedan fuera del alcance de este P0.
 
+## 19 de noviembre de 2026 — Pruebas de jugabilidad
+
+**Tiempo:** 1 h.
+
+Realizamos partidas entre dos personas utilizando una misma computadora. Durante las pruebas identificamos que jugar desde equipos independientes permitiría desarrollar estrategias sin conocer las instrucciones del oponente.
+
+A partir de esta experiencia surgió la propuesta de implementar un modo multijugador LAN.
+
+## 24 de noviembre de 2026 — Multijugador LAN y mejoras de usabilidad
+
+**Tiempo:** aproximadamente 5 h, desde las 14:00.
+
+**Rama:** `feature/online-lan-mvp`.
+
+**Trabajo realizado:**
+
+- Implementé el modo multijugador LAN mediante una interfaz web, reutilizando el motor existente y centralizando la inferencia de Ollama en la computadora anfitriona.
+- Probamos una partida completa entre dos personas utilizando dos computadoras diferentes, con resultado satisfactorio.
+- Identificamos problemas de selección del modelo relacionados con Kivy. Utilicé Windows Doctor, incorporé una herramienta de selección de modelos y corregí el problema.
+- A partir de las dificultades para explicar el juego a otro participante, incorporé traducciones al español e inglés, mejoras visuales y una guía de comandos y escritura de prompts.
+
+**Validación:** partida completa en LAN, pruebas automatizadas del servidor (4 PASS) y selección de modelos (17 PASS).
+
+**Evidencia:** nueve commits publicados en el fork personal, hasta el SHA `d91e527`.
+
+**Próximos pasos:** medir la latencia, ampliar las capacidades del juego y validar partidas desde redes diferentes. Se espera avanzar en estos puntos durante la próxima semana.
+
 ## Pendientes actuales
 
 - Ampliar la validación del Connector a aislamiento entre bots, cambios de modo, límites de partida/ronda, concurrencia y recuperación ante desconexiones. El P0 solo validó dos mensajes consecutivos en un mismo contexto.
