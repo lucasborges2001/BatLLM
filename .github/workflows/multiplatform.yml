@@ -50,7 +50,13 @@ jobs:
         run: python -m pip install -r requirements.txt
 
       - name: Compile launchers and source
-        run: python -m compileall -q src run_batllm.py run_tests.py create_release_bundles.py create_homebrew_formula.py run_game_analyzer.py validate_packaging_smoke.py
+        run: python -m compileall -q src run_batllm.py run_batllm_lan.py run_tests.py create_release_bundles.py create_homebrew_formula.py run_game_analyzer.py validate_packaging_smoke.py
+
+      - name: Test LAN web server
+        run: python -m pytest -q src/tests/test_lan_server.py
+
+      - name: Check documentation
+        run: python tools/check_docs.py
 
       - name: Build release bundles
         run: python create_release_bundles.py --version 0.0.0-ci
