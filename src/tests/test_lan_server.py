@@ -86,6 +86,9 @@ def test_invitation_links_serve_web_client_and_player_state(lan_server):
         page = response.read().decode("utf-8")
         assert response.status == 200
         assert "BatLLM Online" in page
+        assert '<html lang="en">' in page
+        assert 'data-language="en"' in page
+        assert 'data-language="es"' in page
 
     status, state = read_json(
         f"http://127.0.0.1:{server.port}/api/v1/state/{server._tokens[1]}"
@@ -121,15 +124,17 @@ def test_two_player_prompts_start_one_shared_round(lan_server):
             payload={"prompt": "A second prompt."},
         )
     assert duplicate.value.code == 409
+    assert json.loads(duplicate.value.read())["error_code"] == "duplicate_prompt"
 
     status, second = read_json(
         f"http://127.0.0.1:{server.port}/api/v1/prompts/{player_two}",
         method="POST",
-        payload={"prompt": "Keep the shield up."},
+        payload={"prompt": "Mantené el escudo activo."},
     )
     assert status == 200
     assert second == {"accepted": True, "waiting_for_opponent": False}
     assert board.history_manager.current_round == {"round": 1}
+    assert board.get_bot_by_id(2).current_prompt == "Mantené el escudo activo."
 
 
 def test_prompt_validation_rejects_empty_and_oversized_content(lan_server):
@@ -140,6 +145,7 @@ def test_prompt_validation_rejects_empty_and_oversized_content(lan_server):
     with pytest.raises(HTTPError) as empty:
         read_json(endpoint, method="POST", payload={"prompt": "  "})
     assert empty.value.code == 400
+    assert json.loads(empty.value.read())["error_code"] == "empty_prompt"
 
     with pytest.raises(HTTPError) as oversized:
         read_json(
@@ -148,3 +154,4 @@ def test_prompt_validation_rejects_empty_and_oversized_content(lan_server):
             payload={"prompt": "x" * (MAX_PROMPT_LENGTH + 1)},
         )
     assert oversized.value.code == 413
+    assert json.loads(oversized.value.read())["error_code"] == "prompt_too_long"

@@ -18,14 +18,33 @@ from configs.app_config import config
 MAX_PROMPT_LENGTH = 4000
 MAX_REQUEST_BYTES = 32 * 1024
 WEB_ROOT = Path(__file__).resolve().parent / "web"
+ERROR_MESSAGES = {
+    "engine_timeout": "The game engine did not respond in time.",
+    "engine_error": "Game engine operation failed.",
+    "player_unavailable": "Player unavailable.",
+    "round_active": "The round is already running.",
+    "duplicate_prompt": "You have already submitted a prompt for this round.",
+    "prompt_rejected": "The prompt was not accepted.",
+    "invalid_token": "Invalid invitation link.",
+    "web_unavailable": "Web client unavailable.",
+    "not_found": "Route not found.",
+    "invalid_length": "Invalid request length.",
+    "missing_body": "Request body is missing.",
+    "request_too_large": "Request too large.",
+    "invalid_json": "Invalid JSON.",
+    "invalid_payload": "Request must be a JSON object.",
+    "empty_prompt": "The prompt cannot be empty.",
+    "prompt_too_long": "The prompt exceeds 4000 characters.",
+}
 
 
 class LanRequestError(Exception):
     """An expected HTTP error raised while handling a player request."""
 
-    def __init__(self, status: int, message: str):
-        super().__init__(message)
+    def __init__(self, status: int, code: str):
+        super().__init__(ERROR_MESSAGES[code])
         self.status = status
+        self.code = code
 
 
 class GameBridge:
@@ -50,12 +69,12 @@ class GameBridge:
 
         self._schedule_once(invoke, 0)
         if not completed.wait(self._timeout):
-            raise LanRequestError(503, "El motor del juego no respondió a tiempo.")
+            raise LanRequestError(503, "engine_timeout")
         if "error" in result:
             error = result["error"]
             if isinstance(error, LanRequestError):
                 raise error
-            raise LanRequestError(503, "No se pudo consultar el estado del juego.") from error
+            raise LanRequestError(503, "engine_error") from error
         return result["value"]
 
     def snapshot(self, player_id: int) -> dict:
@@ -112,13 +131,13 @@ class GameBridge:
         def submit(board):
             bot = board.get_bot_by_id(player_id)
             if bot is None:
-                raise LanRequestError(503, "El jugador no está disponible.")
+                raise LanRequestError(503, "player_unavailable")
             if board.history_manager.current_round is not None:
-                raise LanRequestError(409, "La ronda ya está en ejecución.")
+                raise LanRequestError(409, "round_active")
             if bool(getattr(bot, "ready_for_next_round", False)):
-                raise LanRequestError(409, "Ya enviaste tu prompt para esta ronda.")
+                raise LanRequestError(409, "duplicate_prompt")
             if not board.submit_prompt_to_bot(player_id, prompt):
-                raise LanRequestError(409, "No se pudo aceptar el prompt.")
+                raise LanRequestError(409, "prompt_rejected")
             return {
                 "accepted": True,
                 "waiting_for_opponent": board.history_manager.current_round is None,
@@ -215,6 +234,9 @@ class LanServer:
                 body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                 self._send(status, body, "application/json; charset=utf-8")
 
+            def _error(self, status: int, code: str):
+                self._json(status, {"error": ERROR_MESSAGES[code], "error_code": code})
+
             def _token_route(self):
                 parts = urlsplit(self.path).path.strip("/").split("/")
                 if len(parts) != 4 or parts[:2] != ["api", "v1"]:
@@ -228,12 +250,12 @@ class LanServer:
                 parts = path.strip("/").split("/")
                 if len(parts) == 2 and parts[0] == "play":
                     if owner.player_for_token(parts[1]) is None:
-                        self._json(403, {"error": "Enlace de invitación inválido."})
+                        self._error(403, "invalid_token")
                         return
                     try:
                         body = (owner.web_root / "index.html").read_bytes()
                     except OSError:
-                        self._json(500, {"error": "No se encontró la interfaz web."})
+                        self._error(500, "web_unavailable")
                         return
                     self._send(200, body, "text/html; charset=utf-8")
                     return
@@ -241,58 +263,58 @@ class LanServer:
                 route, player_id = self._token_route()
                 if route == "state":
                     if player_id is None:
-                        self._json(403, {"error": "Enlace de invitación inválido."})
+                        self._error(403, "invalid_token")
                         return
                     try:
                         self._json(200, owner._bridge.snapshot(player_id))
                     except LanRequestError as exc:
-                        self._json(exc.status, {"error": str(exc)})
+                        self._error(exc.status, exc.code)
                     return
-                self._json(404, {"error": "Ruta no encontrada."})
+                self._error(404, "not_found")
 
             def do_POST(self):
                 route, player_id = self._token_route()
                 if route != "prompts":
-                    self._json(404, {"error": "Ruta no encontrada."})
+                    self._error(404, "not_found")
                     return
                 if player_id is None:
-                    self._json(403, {"error": "Enlace de invitación inválido."})
+                    self._error(403, "invalid_token")
                     return
 
                 try:
                     length = int(self.headers.get("Content-Length", "0"))
                 except ValueError:
-                    self._json(400, {"error": "Content-Length inválido."})
+                    self._error(400, "invalid_length")
                     return
                 if length <= 0:
-                    self._json(400, {"error": "Falta el cuerpo de la solicitud."})
+                    self._error(400, "missing_body")
                     return
                 if length > MAX_REQUEST_BYTES:
-                    self._json(413, {"error": "Solicitud demasiado grande."})
+                    self._error(413, "request_too_large")
                     return
 
                 try:
                     payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 except (UnicodeDecodeError, json.JSONDecodeError):
-                    self._json(400, {"error": "JSON inválido."})
+                    self._error(400, "invalid_json")
                     return
                 if not isinstance(payload, dict):
-                    self._json(400, {"error": "El cuerpo debe ser un objeto JSON."})
+                    self._error(400, "invalid_payload")
                     return
 
                 prompt = payload.get("prompt")
                 if not isinstance(prompt, str) or not prompt.strip():
-                    self._json(400, {"error": "El prompt no puede estar vacío."})
+                    self._error(400, "empty_prompt")
                     return
                 prompt = prompt.strip()
                 if len(prompt) > MAX_PROMPT_LENGTH:
-                    self._json(413, {"error": f"El prompt supera {MAX_PROMPT_LENGTH} caracteres."})
+                    self._error(413, "prompt_too_long")
                     return
 
                 try:
                     result = owner._bridge.submit_prompt(player_id, prompt)
                 except LanRequestError as exc:
-                    self._json(exc.status, {"error": str(exc)})
+                    self._error(exc.status, exc.code)
                     return
                 self._json(200, result)
 

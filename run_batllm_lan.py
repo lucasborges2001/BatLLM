@@ -40,19 +40,19 @@ class LanBatLLM(BatLLM):
                 port=self._lan_port,
             ).start()
         except OSError as exc:
-            print(f"BatLLM LAN: no se pudo iniciar el servidor: {exc}")
+            print(f"BatLLM LAN: could not start the server: {exc}")
             Clock.schedule_once(lambda _dt: self.stop(), 0)
             return
 
         urls = self._lan_server.invitation_urls
         print("\nBatLLM Online LAN")
-        print(f"Servidor: http://{self._lan_server.advertise_host}:{self._lan_server.port}")
-        print(f"Jugador 1: {urls[1]}")
-        print(f"Jugador 2: {urls[2]}")
-        print("Compartí cada enlace con un jugador de la misma red local.")
+        print(f"Server: http://{self._lan_server.advertise_host}:{self._lan_server.port}")
+        print(f"Player 1: {urls[1]}")
+        print(f"Player 2: {urls[2]}")
+        print("Share one link with each player on the same local network.")
         if self._lan_server.advertise_host.startswith("127."):
-            print("No se detectó una IP LAN; los enlaces solo funcionarán en esta PC.")
-        print("Si Windows Firewall pregunta, permití Python en redes privadas.\n")
+            print("No LAN IP detected; links will only work on this computer.")
+        print("If Windows Firewall prompts, allow Python on private networks.\n")
 
     def on_stop(self):
         if self._lan_server is not None:
