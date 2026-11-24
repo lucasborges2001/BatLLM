@@ -55,6 +55,14 @@ Main application:
 python run_batllm.py
 ```
 
+Experimental two-player LAN game:
+
+```bash
+python run_batllm_lan.py
+```
+
+The host keeps the Kivy game running, starts a local HTTP server and prints one invitation link per player. Both players must use the same local network; the host's configured Ollama service and model must be available. This prototype uses plain HTTP and is not intended for public Internet access.
+
 Standalone Game Analyzer:
 
 ```bash
