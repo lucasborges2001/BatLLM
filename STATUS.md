@@ -1,6 +1,6 @@
 # BatLLM status
 
-Last updated: 2026-11-24 11:33
+Last updated: 2026-11-24 11:48
 
 ## Project and release phase
 
@@ -59,7 +59,7 @@ Both management interfaces use explicit BatLLM endpoints and the guarded service
 
 ## Validation evidence
 
-The LAN MVP is committed on `feature/online-lan-mvp` at `330e0f3` with focused HTTP tests for invitation links, player seats, prompt validation and shared round start. Hosted Multiplatform Validation was queued for that commit. The new tests have not yet been executed in a local checkout; no real Ollama game or cross-device LAN session has been validated.
+The LAN MVP branch head `5600a80` passed hosted Multiplatform Validation on 24 November 2026: source and launcher compilation, the focused LAN HTTP tests (3 passed on Ubuntu, Windows and macOS), documentation validation on all three systems, seven Homebrew packaging tests, and two mock-Ollama transport smoke tests. See [the workflow run](https://github.com/lucasborges2001/BatLLM/actions/runs/45452269862). This is pipeline validation only: the LAN tests use a fake board and do not verify real GameBoard/Kivy integration, a real Ollama model, browser rendering on physical devices, Windows firewall behaviour or a cross-device LAN match. The full non-live suite was not run for this MVP change.
 
 Pre-fork verification on 6 November 2026 used a fresh Python 3.12 environment
 installed from `requirements.txt`, including the published Modelito 1.4.8:
@@ -106,4 +106,4 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 - Finish the UI consistency and accessibility work in `docs/UI_UNIFICATION_PLAN_1_0.md` before 1.0 sign-off.
 - Longer term: separate remaining Kivy coordination, then design the server contract for networked play before adding clients or shared repositories.
 
-Last updated: 2026-11-24 11:33
+Last updated: 2026-11-24 11:48
