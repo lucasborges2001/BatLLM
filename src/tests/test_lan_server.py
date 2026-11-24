@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from types import SimpleNamespace
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
 
+from game.replay_engine import parse_model_response
 from network.lan_server import LanServer, MAX_PROMPT_LENGTH
 
 
@@ -155,3 +157,30 @@ def test_prompt_validation_rejects_empty_and_oversized_content(lan_server):
         )
     assert oversized.value.code == 413
     assert json.loads(oversized.value.read())["error_code"] == "prompt_too_long"
+
+
+def test_web_assets_and_help_commands(lan_server):
+    server, _board = lan_server
+    base = f"http://127.0.0.1:{server.port}"
+    with urlopen(server.invitation_urls[1], timeout=3) as response:
+        page = response.read().decode("utf-8")
+    assert 'id="help-button"' in page
+    assert 'id="help-dialog"' in page
+    assert page.index("/assets/translations.js") < page.index("/assets/app.js")
+    commands = re.findall(r"<dt><code>([^<]+)</code></dt>", page)
+    assert set(commands) == {"C90", "A45", "M", "M0.2", "S1", "S0", "S", "B"}
+    assert all(parse_model_response(command).valid for command in commands)
+    for asset, media_type in (
+        ("styles.css", "text/css"),
+        ("translations.js", "text/javascript"),
+        ("app.js", "text/javascript"),
+    ):
+        assert f"/assets/{asset}" in page
+        with urlopen(f"{base}/assets/{asset}", timeout=3) as response:
+            assert response.status == 200
+            assert response.headers.get_content_type() == media_type
+            assert response.read()
+    for path in ("unknown.js", "../index.html", "%2e%2e/lan_server.py"):
+        with pytest.raises(HTTPError) as error:
+            urlopen(f"{base}/assets/{path}", timeout=3)
+        assert error.value.code == 404

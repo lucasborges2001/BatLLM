@@ -1,6 +1,6 @@
 # BatLLM status
 
-Last updated: 2026-11-24 12:08
+Last updated: 2026-11-24 12:20
 
 ## Project and release phase
 
@@ -8,7 +8,7 @@ BatLLM is a Python/Kivy research, education and two-player battle game. Human pr
 
 ## Current capabilities
 
-- Experimental two-player LAN web mode: `python run_batllm_lan.py` starts the existing Kivy game and a local HTTP server, then prints one tokenised browser link per player. Browser prompts are submitted to the existing `GameBoard`; the host's Ollama configuration remains authoritative. This is a single in-memory room for same-LAN use. The browser uses a side-by-side desktop layout with English/Spanish language selection; player prompts and model commands are not translated.
+- Experimental two-player LAN web mode: `python run_batllm_lan.py` starts the existing Kivy game and a local HTTP server, then prints one tokenised browser link per player. Browser prompts are submitted to the existing `GameBoard`; the host's Ollama configuration remains authoritative. This is a single in-memory room for same-LAN use. The browser uses a side-by-side desktop layout with English/Spanish language selection; player prompts and model commands are not translated. The web client separates styles, translations and application logic, with a bilingual command reference and per-bot position, rotation and shield indicators.
 - Two players, two bots, round prompts, shared or independent conversation histories, and optional game-state prompt augmentation.
 - Asynchronous gameplay requests, guarded inference callbacks and guarded scheduled turns; fresh histories for new games and conversation/state rollback for cancelled rounds.
 - Strict native Ollama inference through the shared published Modelito 1.4.8 adapter; structured roles, generation options, `stream: false`, explicit deadlines and propagated errors.
@@ -93,7 +93,7 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 
 ## Known limitations and pending work
 
-- Experimental LAN web MVP: the host must run the Kivy desktop app and its configured Ollama service; clients use plain HTTP on the same LAN. It supports one in-memory room and two fixed seats. There is no TLS, Internet tunnel, persistence, host-restart recovery, spectator mode, multiple rooms or production-grade identity/rate limiting. Windows Firewall may need to allow Python on private networks. On Windows, the project virtual environment passed Doctor (9 checks) and the host launched successfully; two local browser tabs showed distinct seats, bot state and accepted prompts on `7ba7145`. Both displayed `ERR` commands afterwards; successful inference/combat, the revised layout and language switch, and cross-device validation remain pending.
+- Experimental LAN web MVP: the host must run the Kivy desktop app and its configured Ollama service; clients use plain HTTP on the same LAN. It supports one in-memory room and two fixed seats. There is no TLS, Internet tunnel, persistence, host-restart recovery, spectator mode, multiple rooms or production-grade identity/rate limiting. Windows Firewall may need to allow Python on private networks. On Windows, the project virtual environment passed Doctor (9 checks) and the host launched successfully; two local browser tabs showed distinct seats, bot state and accepted prompts on `7ba7145`. Both displayed `ERR` commands afterwards; the compact desktop browser layout was subsequently observed on Windows at `47b8633`. Successful inference/combat, the extracted assets, command help, corrected coordinate mapping and cross-device validation remain pending.
 - Homebrew publishing hardening (31 October 2026): the publish job is restricted to `krahd/BatLLM`, so workshop-fork tags cannot publish to the shared tap. The tap clone uses pinned `actions/checkout@v6` with a scoped repository token, rather than embedding that token in the Git remote URL. Workflow execution after this change has not yet been validated; the shared token's provider-side scope and rotation remain to verify.
 
 - **A1/A2 repaired:** bundle installers select/check Python 3.10–3.12 and smoke checks validate the installed interpreter; the analyser uses a single custom file-list layout so native row selection works. Windows/Linux native installer acceptance remains unrun.
@@ -106,4 +106,4 @@ Earlier evidence remains in the [27 October native rehearsal](docs/NATIVE_REHEAR
 - Finish the UI consistency and accessibility work in `docs/UI_UNIFICATION_PLAN_1_0.md` before 1.0 sign-off.
 - Longer term: separate remaining Kivy coordination, then design the server contract for networked play before adding clients or shared repositories.
 
-Last updated: 2026-11-24 12:08
+Last updated: 2026-11-24 12:20

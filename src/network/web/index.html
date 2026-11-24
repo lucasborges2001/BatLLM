@@ -6,58 +6,7 @@
   <meta name="theme-color" content="#10131c">
   <meta name="referrer" content="no-referrer">
   <title>BatLLM Online</title>
-  <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #10131c; color: #edf1fa; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: radial-gradient(circle at top, #20283b, #10131c 65%); }
-    main { width: min(1680px, 100%); min-height: 100dvh; margin: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
-    header, .summary, .header-actions, .languages { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    header { justify-content: space-between; }
-    h1 { margin: 0 0 2px; font-size: 1.45rem; }
-    .muted { color: #a8b2c8; font-size: .88rem; }
-    .pill { background: #252e42; border-radius: 999px; padding: 6px 11px; font-size: .85rem; }
-    .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 14px; flex: 1; min-height: 0; }
-    .panel { background: #1a2030; border: 1px solid #30394d; border-radius: 12px; padding: 14px; min-width: 0; }
-    .arena-panel { display: grid; place-items: center; min-height: 0; }
-    .arena { position: relative; width: min(100%, calc(100dvh - 156px)); aspect-ratio: 1; overflow: hidden; border: 1px solid #46516a; border-radius: 8px; background-color: #121a29; background-image: linear-gradient(#ffffff0c 1px, transparent 1px), linear-gradient(90deg, #ffffff0c 1px, transparent 1px); background-size: 10% 10%; }
-    .bot { position: absolute; width: 8%; aspect-ratio: 1; transform: translate(-50%, -50%); transition: left .35s, top .35s; }
-    .bot-body { width: 100%; height: 100%; border: 2px solid #e8eefc; border-radius: 50%; display: grid; place-items: center; }
-    .bot-one .bot-body { background: #3b82d0; }
-    .bot-two .bot-body { background: #9662c8; }
-    .bot.shield .bot-body { box-shadow: 0 0 0 4px #b49aff88; }
-    .arrow { width: 60%; height: 60%; background: white; clip-path: polygon(20% 15%, 90% 50%, 20% 85%); }
-    .bot-tag { position: absolute; top: 115%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: .75rem; color: white; text-shadow: 0 1px 3px #000; pointer-events: none; }
-    .controls { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-    .players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    .player { border: 1px solid #30394d; border-radius: 9px; background: #151b29; padding: 10px; min-width: 0; }
-    .player.active { border-color: #8db8ff; }
-    .player strong { display: block; margin-bottom: 3px; }
-    .health { font-size: 1.4rem; font-weight: 700; }
-    #health-1 { color: #8bc5ff; }
-    #health-2 { color: #d0a9ff; }
-    .command { color: #a8b2c8; font-size: .85rem; margin-top: 4px; overflow-wrap: anywhere; }
-    form { display: flex; flex: 1; flex-direction: column; gap: 8px; min-height: 0; }
-    textarea { display: block; width: 100%; flex: 1; min-height: 100px; resize: none; padding: 10px; border-radius: 8px; border: 1px solid #46516a; background: #111827; color: #edf1fa; font: inherit; }
-    button { border: 0; border-radius: 8px; padding: 10px 14px; background: #3479d1; color: white; font: inherit; font-weight: 650; cursor: pointer; }
-    button:disabled, textarea:disabled { opacity: .55; cursor: not-allowed; }
-    .languages button { display: inline-flex; align-items: center; gap: 5px; background: #252e42; font-size: .8rem; padding: 6px 8px; border: 1px solid transparent; }
-    .languages button[aria-pressed="true"] { border-color: #8db8ff; }
-    .languages svg { width: 20px; height: 14px; border-radius: 2px; }
-    #status { min-height: 2.6em; }
-    #notice { color: #c3d5f4; font-size: .85rem; overflow-wrap: anywhere; }
-    #notice:empty { display: none; }
-    @media (min-width: 900px) and (min-height: 550px) {
-      main { height: 100dvh; }
-      .controls { overflow-y: auto; }
-    }
-    @media (max-width: 899px), (max-height: 549px) {
-      main { padding: 12px; }
-      .layout { grid-template-columns: minmax(0, 1fr); }
-      .arena { width: min(100%, 540px); }
-      textarea { min-height: 130px; }
-    }
-    @media (max-width: 380px) { .players { grid-template-columns: 1fr; } }
-  </style>
+  <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 <main>
@@ -76,9 +25,11 @@
         </button>
       </div>
       <div class="pill" id="connection">Connecting</div>
+      <button class="help-button" id="help-button" type="button" aria-haspopup="dialog" data-i18n="help">Help</button>
     </div>
   </header>
   <div class="summary">
+    <div class="pill" id="game">Game —</div>
     <div class="pill" id="round">Round —</div>
     <div class="pill" id="turn">Turn —</div>
     <div class="pill" id="model">Model —</div>
@@ -97,12 +48,18 @@
           <div class="health" id="health-1">— HP</div>
           <div class="command" id="command-1">Last command: —</div>
           <div class="command" id="ready-1">No prompt</div>
+          <div class="command telemetry" id="position-1">X: — · Y: —</div>
+          <div class="command telemetry" id="rotation-1">Rotation: —</div>
+          <div class="command" id="shield-1">Shield: —</div>
         </div>
         <div class="player" id="player-2">
           <strong id="name-2">Player 2</strong>
           <div class="health" id="health-2">— HP</div>
           <div class="command" id="command-2">Last command: —</div>
           <div class="command" id="ready-2">No prompt</div>
+          <div class="command telemetry" id="position-2">X: — · Y: —</div>
+          <div class="command telemetry" id="rotation-2">Rotation: —</div>
+          <div class="command" id="shield-2">Shield: —</div>
         </div>
       </div>
       <strong id="status">Waiting for game state…</strong>
@@ -115,176 +72,26 @@
     </section>
   </div>
 </main>
-<script>
-  const translations = {
-    en: {
-      language: "Language", arena: "Game arena", player: "Player", identity: "You are playing as Player",
-      connecting: "Connecting", connectingGame: "Connecting to the game…", connected: "Connected", disconnected: "Disconnected",
-      round: "Round", turn: "Turn", waitingRound: "Waiting for round", model: "Model", lastCommand: "Last command",
-      received: "Prompt received", noPrompt: "No prompt", waitingState: "Waiting for game state…",
-      running: "Round in progress. The bots are taking their turns.",
-      waitingOpponent: "Prompt received. Waiting for Player {id}.", opponentReady: "Your opponent has submitted a prompt. Prepare yours.",
-      waitingPrompts: "Waiting for both players to submit prompts.", instructions: "Instructions for your bot",
-      submit: "Submit prompt", sending: "Sending prompt…", stateError: "Unable to read the game state.",
-      submitError: "Unable to submit the prompt.", invalid_token: "Invalid invitation link.", web_unavailable: "Web client unavailable.",
-      not_found: "Route not found.", engine_timeout: "The game engine did not respond in time.", engine_error: "Game engine operation failed.",
-      player_unavailable: "Player unavailable.", round_active: "The round is already running.", duplicate_prompt: "You have already submitted a prompt for this round.",
-      prompt_rejected: "The prompt was not accepted.", invalid_length: "Invalid request length.", missing_body: "Request body is missing.",
-      request_too_large: "Request too large.", invalid_json: "Invalid JSON.", invalid_payload: "Request must be a JSON object.",
-      empty_prompt: "The prompt cannot be empty.", prompt_too_long: "The prompt exceeds 4000 characters."
-    },
-    es: {
-      language: "Idioma", arena: "Arena de juego", player: "Jugador", identity: "Estás jugando como Jugador",
-      connecting: "Conectando", connectingGame: "Conectando a la partida…", connected: "Conectado", disconnected: "Desconectado",
-      round: "Ronda", turn: "Turno", waitingRound: "Esperando ronda", model: "Modelo", lastCommand: "Último comando",
-      received: "Prompt recibido", noPrompt: "Sin prompt", waitingState: "Esperando estado del juego…",
-      running: "Ronda en curso. Los bots están ejecutando sus turnos.",
-      waitingOpponent: "Prompt recibido. Esperando al Jugador {id}.", opponentReady: "El rival ya envió su prompt. Prepará el tuyo.",
-      waitingPrompts: "Esperando los prompts de ambos jugadores.", instructions: "Instrucciones para tu bot",
-      submit: "Enviar prompt", sending: "Enviando prompt…", stateError: "No se pudo consultar el estado de la partida.",
-      submitError: "No se pudo enviar el prompt.", invalid_token: "Enlace de invitación inválido.", web_unavailable: "Interfaz web no disponible.",
-      not_found: "Ruta no encontrada.", engine_timeout: "El motor del juego no respondió a tiempo.", engine_error: "Falló una operación del motor del juego.",
-      player_unavailable: "Jugador no disponible.", round_active: "La ronda ya está en ejecución.", duplicate_prompt: "Ya enviaste tu prompt para esta ronda.",
-      prompt_rejected: "No se pudo aceptar el prompt.", invalid_length: "Longitud de solicitud inválida.", missing_body: "Falta el cuerpo de la solicitud.",
-      request_too_large: "Solicitud demasiado grande.", invalid_json: "JSON inválido.", invalid_payload: "La solicitud debe ser un objeto JSON.",
-      empty_prompt: "El prompt no puede estar vacío.", prompt_too_long: "El prompt supera 4000 caracteres."
-    }
-  };
-  const byId = (id) => document.getElementById(id);
-  const token = window.location.pathname.split("/").filter(Boolean).pop();
-  const languageButtons = document.querySelectorAll("[data-language]");
-  let language = "en";
-  try { if (localStorage.getItem("batllm-language") === "es") language = "es"; } catch (_) {}
-  let currentState = null;
-  let connection = "connecting";
-  let stateError = null;
-  let notice = null;
-  let submitting = false;
-
-  function t(key) {
-    return translations[language][key] || translations.en[key] || translations[language].stateError;
-  }
-
-  function renderBot(bot) {
-    const node = byId("bot-" + bot.id);
-    node.style.left = (bot.x * 100) + "%";
-    node.style.top = ((1 - bot.y) * 100) + "%";
-    node.querySelector(".arrow").style.transform = "rotate(" + (-bot.rot) + "deg)";
-    node.classList.toggle("shield", bot.shield);
-    node.querySelector(".bot-tag").textContent = "Bot " + bot.id;
-    byId("health-" + bot.id).textContent = bot.health + " HP";
-    byId("command-" + bot.id).textContent = t("lastCommand") + ": " + (bot.last_cmd || "—");
-  }
-
-  function render() {
-    document.documentElement.lang = language;
-    byId("languages").setAttribute("aria-label", t("language"));
-    byId("arena").setAttribute("aria-label", t("arena"));
-    languageButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.language === language)));
-    byId("connection").textContent = t(connection);
-    byId("prompt-label").textContent = t("instructions");
-    byId("submit").textContent = t("submit");
-    byId("notice").textContent = notice ? t(notice) : "";
-    for (const id of [1, 2]) {
-      byId("name-" + id).textContent = t("player") + " " + id;
-      byId("command-" + id).textContent = t("lastCommand") + ": —";
-      byId("ready-" + id).textContent = t("noPrompt");
-    }
-    let disabled = true;
-    let status = t("waitingState");
-    if (!currentState) {
-      byId("identity").textContent = t("connectingGame");
-      for (const key of ["round", "turn", "model"]) byId(key).textContent = t(key) + " —";
-    } else {
-      const state = currentState;
-      const me = state.players.find(player => player.id === state.player_id);
-      const opponent = state.players.find(player => player.id !== state.player_id);
-      byId("identity").textContent = t("identity") + " " + state.player_id;
-      byId("round").textContent = t("round") + " " + state.round + " / " + state.total_rounds;
-      byId("turn").textContent = state.round_active
-        ? t("turn") + " " + Math.min(state.turn + 1, state.turns_per_round) + " / " + state.turns_per_round
-        : t("waitingRound");
-      byId("model").textContent = t("model") + ": " + (state.model || "Ollama");
-      state.bots.forEach(renderBot);
-      state.players.forEach(player => {
-        byId("player-" + player.id).classList.toggle("active", player.id === state.player_id);
-        byId("ready-" + player.id).textContent = t(player.ready ? "received" : "noPrompt");
-      });
-      status = state.phase === "running" ? t("running")
-        : me.ready ? t("waitingOpponent").replace("{id}", opponent.id)
-        : t(opponent.ready ? "opponentReady" : "waitingPrompts");
-      disabled = state.phase === "running" || me.ready;
-    }
-    byId("status").textContent = stateError ? t(stateError) : status;
-    disabled = disabled || submitting || connection !== "connected";
-    byId("prompt").disabled = disabled;
-    byId("submit").disabled = disabled;
-  }
-
-  languageButtons.forEach(button => button.addEventListener("click", () => {
-    language = button.dataset.language;
-    try { localStorage.setItem("batllm-language", language); } catch (_) {}
-    render();
-  }));
-
-  function errorKey(payload, fallback) {
-    const key = payload.error_code;
-    return Object.hasOwn(translations.en, key) ? key : fallback;
-  }
-
-  async function refresh() {
-    try {
-      const response = await fetch("/api/v1/state/" + encodeURIComponent(token), { cache: "no-store" });
-      const payload = await response.json();
-      if (!response.ok) {
-        stateError = errorKey(payload, "stateError");
-        connection = "disconnected";
-      } else {
-        currentState = payload;
-        stateError = null;
-        connection = "connected";
-      }
-    } catch (_) {
-      stateError = "stateError";
-      connection = "disconnected";
-    } finally {
-      render();
-      window.setTimeout(refresh, 800);
-    }
-  }
-
-  byId("prompt-form").addEventListener("submit", async event => {
-    event.preventDefault();
-    const prompt = byId("prompt").value;
-    if (!prompt.trim() || !currentState || submitting || byId("submit").disabled) return;
-    submitting = true;
-    notice = "sending";
-    render();
-    try {
-      const response = await fetch("/api/v1/prompts/" + encodeURIComponent(token), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        notice = errorKey(payload, "submitError");
-      } else {
-        byId("prompt").value = "";
-        notice = null;
-        // Wait for the next authoritative snapshot before enabling another submission.
-        connection = "connecting";
-      }
-    } catch (_) {
-      notice = "submitError";
-    } finally {
-      submitting = false;
-      render();
-    }
-  });
-
-  render();
-  refresh();
-</script>
+<dialog class="help-dialog" id="help-dialog" aria-labelledby="help-title">
+  <div class="help-header">
+    <h2 id="help-title" data-i18n="helpTitle">Command reference</h2>
+    <form method="dialog"><button type="submit" data-i18n="close">Close</button></form>
+  </div>
+  <p data-i18n="helpIntro"></p>
+  <dl>
+    <dt><code>C90</code></dt><dd data-i18n="helpClockwise"></dd>
+    <dt><code>A45</code></dt><dd data-i18n="helpAnticlockwise"></dd>
+    <dt><code>M</code></dt><dd data-i18n="helpMove"></dd>
+    <dt><code>M0.2</code></dt><dd data-i18n="helpDistance"></dd>
+    <dt><code>S1</code></dt><dd data-i18n="helpShieldOn"></dd>
+    <dt><code>S0</code></dt><dd data-i18n="helpShieldOff"></dd>
+    <dt><code>S</code></dt><dd data-i18n="helpShieldToggle"></dd>
+    <dt><code>B</code></dt><dd data-i18n="helpFire"></dd>
+  </dl>
+  <p data-i18n="helpRules"></p>
+  <p data-i18n="helpPrompt"></p>
+</dialog>
+<script src="/assets/translations.js" defer></script>
+<script src="/assets/app.js" defer></script>
 </body>
 </html>

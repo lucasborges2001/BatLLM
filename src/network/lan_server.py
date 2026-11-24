@@ -18,6 +18,11 @@ from configs.app_config import config
 MAX_PROMPT_LENGTH = 4000
 MAX_REQUEST_BYTES = 32 * 1024
 WEB_ROOT = Path(__file__).resolve().parent / "web"
+WEB_ASSETS = {
+    "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
+    "/assets/translations.js": ("translations.js", "text/javascript; charset=utf-8"),
+    "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+}
 ERROR_MESSAGES = {
     "engine_timeout": "The game engine did not respond in time.",
     "engine_error": "Game engine operation failed.",
@@ -247,6 +252,16 @@ class LanServer:
 
             def do_GET(self):
                 path = urlsplit(self.path).path
+                if path in WEB_ASSETS:
+                    filename, content_type = WEB_ASSETS[path]
+                    try:
+                        body = (owner.web_root / filename).read_bytes()
+                    except OSError:
+                        self._error(500, "web_unavailable")
+                        return
+                    self._send(200, body, content_type)
+                    return
+
                 parts = path.strip("/").split("/")
                 if len(parts) == 2 and parts[0] == "play":
                     if owner.player_for_token(parts[1]) is None:

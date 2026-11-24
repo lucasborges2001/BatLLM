@@ -61,7 +61,7 @@ Experimental two-player LAN game:
 python run_batllm_lan.py
 ```
 
-The host keeps the Kivy game running, starts a local HTTP server and prints one invitation link per player. Both players must use the same local network; the host's configured Ollama service and model must be available. This prototype uses plain HTTP and is not intended for public Internet access. The browser defaults to English and offers EN/ES language buttons. Changing the display language does not translate player prompts or model commands.
+The host keeps the Kivy game running, starts a local HTTP server and prints one invitation link per player. Both players must use the same local network; the host's configured Ollama service and model must be available. This prototype uses plain HTTP and is not intended for public Internet access. The browser defaults to English and offers EN/ES language buttons. Changing the display language does not translate player prompts or model commands. Help lists the supported model commands from the command language; the browser also displays each bot's position, rotation and shield state. Desktop history, prompt file operations, settings and session management remain on the host.
 
 Standalone Game Analyzer:
 
