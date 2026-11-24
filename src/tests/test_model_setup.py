@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import subprocess
+import sys
+
 import pytest
 
 from configs.app_config import AppConfig, SHIPPED_CONFIG_PATH, config
@@ -133,3 +138,36 @@ def test_api_failure_does_not_change_configuration(monkeypatch, capsys) -> None:
     assert model_setup.main(["--non-interactive"]) == 2
     assert config.get("llm", "model") == "smollm2"
     assert "offline" in capsys.readouterr().err
+
+
+def test_module_cli_accepts_explicit_model_without_inherited_kivy_no_args() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    env.pop("KIVY_NO_ARGS", None)
+    env["KIVY_WINDOW"] = "mock"
+    env["KIVY_NO_CONSOLELOG"] = "1"
+    source_path = str(repo_root / "src")
+    env["PYTHONPATH"] = os.pathsep.join(
+        item for item in (source_path, env.get("PYTHONPATH", "")) if item
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "llm.model_setup",
+            "--model",
+            "smollm2:360m",
+            "--help",
+        ],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Select an installed Ollama model" in result.stdout
+    assert "--model" in result.stdout

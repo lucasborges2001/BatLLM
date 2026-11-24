@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import os
 import sys
 from collections.abc import Iterable
+
+# This CLI imports AppConfig, which initialises Kivy. Keep Kivy from parsing CLI arguments.
+os.environ["KIVY_NO_ARGS"] = "1"
 
 from configs.app_config import config
 from llm import service as ollama_service
