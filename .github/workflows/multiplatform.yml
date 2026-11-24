@@ -55,6 +55,21 @@ jobs:
       - name: Test LAN web server
         run: python -m pytest -q src/tests/test_lan_server.py
 
+      - name: Test installed model selection
+        run: python -m pytest -q src/tests/test_model_setup.py
+
+      - name: Parse Windows model setup script
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/scripts/windows/batllm-model-setup.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
       - name: Check documentation
         run: python tools/check_docs.py
 

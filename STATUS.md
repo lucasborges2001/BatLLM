@@ -13,6 +13,7 @@ BatLLM is a Python/Kivy research, education and two-player battle game. Human pr
 - Asynchronous gameplay requests, guarded inference callbacks and guarded scheduled turns; fresh histories for new games and conversation/state rollback for cancelled rounds.
 - Strict native Ollama inference through the shared published Modelito 1.4.8 adapter; structured roles, generation options, `stream: false`, explicit deadlines and propagated errors.
 - Ollama status, start, warm-up, local inventory, downloads and deletion at BatLLM’s configured endpoint. Shutdown requires an ownership receipt matching endpoint, PID and process creation time; external services remain running.
+- Windows model setup helper: `scripts/windows/batllm-model-setup.ps1` reads the configured Ollama inventory and selects an installed model, persisting only `llm.model` through `AppConfig`. It never downloads or warms a model, starts/stops Ollama, unloads models, or edits shipped defaults; real Windows/Ollama execution remains a manual check.
 - Only the latest model selection persists after readiness succeeds; selection never automatically unloads other models. Both management interfaces confirm deletion, unload and download actions. Startup never pulls missing models.
 - Remote model-family catalogue discovery uses Modelito at the configured endpoint; failures remain explicit and both interfaces retain confirmed downloads by entered model name.
 - Atomic configuration and session persistence. Session-v2 exports contain completed turns, frozen rules and a configuration metadata snapshot, without live metadata queries during saving.
@@ -42,6 +43,8 @@ Headless validation uses `KIVY_WINDOW=mock`, `KIVY_NO_ARGS=1` and `KIVY_NO_CONSO
 - `src/game/`: Kivy coordination, pure replay semantics, histories, v2 sessions and v3 research traces.
 - `src/llm/chat.py`: shared strict inference adapter for desktop and research.
 - `src/llm/service.py`: BatLLM configuration, explicit-endpoint management operations and owned-process lifecycle.
+- `src/llm/model_setup.py`: deterministic installed-model selection and user-preference update for the Windows setup command.
+- `scripts/windows/batllm-model-setup.ps1`: Windows entry point for local model selection.
 - `src/configs/app_config.py`: section-validated loading, execution-only setting overrides and atomic preference writes.
 - `src/configs/configurator.py`: standalone editor using the same strict transport and explicit-endpoint management operations.
 - `src/util/paths.py`: resources, user state and legacy-session copying.

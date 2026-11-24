@@ -203,6 +203,14 @@ A local model is already installed in Ollama. **Use Selected** saves the model c
 
 BatLLM saves the model name, attempts to warm it for gameplay, and records it as the last successfully served model when warm-up succeeds.
 
+On Windows, if the configured model is missing but Ollama already has a local model, run:
+
+```powershell
+.\\scripts\\windows\\batllm-model-setup.ps1
+```
+
+The helper keeps an installed configured model, otherwise prefers the last successfully served model, then a unique installed variant of the configured family, or the only installed model. If several models remain eligible, it asks you to choose. Use `-Model` with the exact installed name to select explicitly, or `-NonInteractive` to fail instead of prompting. It writes only `llm.model` in the user configuration; it does not change shipped defaults or `last_served_model`, and it does not download, warm up, start, stop, or unload models. Verify the selected name with the Windows Doctor afterwards.
+
 The status report treats an omitted model tag as `latest`; distinct explicit tags remain separate.
 
 The local-model timeout controls can save or remove a per-model request-timeout override.
